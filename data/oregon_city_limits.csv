@@ -1,0 +1,242 @@
+﻿OBJECTID,CITYNAME,descriptn,instCode,unitOwner,acres,EFFECTV_DT,GIS_PRC_DT
+1,Adair Village,Incorporated City Limit Boundary,00275,2409661,323.729918590375,2024,11/4/2024
+2,Adams,Incorporated City Limit Boundary,00350,2409662,230.590391349315,2024,11/4/2024
+3,Adrian,Incorporated City Limit Boundary,00500,2409664,155.900275645518,2024,11/4/2024
+4,Albany,Incorporated City Limit Boundary,01000,2409675,11467.3242995962,2024,11/4/2024
+5,Amity,Incorporated City Limit Boundary,02000,2409700,402.794452153996,2024,11/4/2024
+6,Antelope,Incorporated City Limit Boundary,02250,2409714,295.101945269601,2024,11/4/2024
+7,Arlington,Incorporated City Limit Boundary,02800,2409730,2172.71835709188,2024,11/4/2024
+8,Ashland,Incorporated City Limit Boundary,03050,2409740,4197.52787162995,2024,11/4/2024
+9,Astoria,Incorporated City Limit Boundary,03150,2409744,6525.31549381553,2024,11/4/2024
+10,Athena,Incorporated City Limit Boundary,03200,2409746,421.787219241773,2024,11/4/2024
+11,Aumsville,Incorporated City Limit Boundary,03250,2409756,708.431115856112,2024,11/4/2024
+12,Aurora,Incorporated City Limit Boundary,03300,2409758,311.633582715716,2024,11/4/2024
+13,Baker City,Incorporated City Limit Boundary,03650,2409773,4614.43766669855,2024,11/4/2024
+14,Bandon,Incorporated City Limit Boundary,03800,2409782,2042.23303023704,2024,11/4/2024
+15,Banks,Incorporated City Limit Boundary,03850,2409784,477.930193709657,2024,11/4/2024
+16,Barlow,Incorporated City Limit Boundary,04000,2409787,33.0938850860128,2024,11/4/2024
+17,Bay City,Incorporated City Limit Boundary,04800,2409797,1254.53542403214,2024,11/4/2024
+18,Beaverton,Incorporated City Limit Boundary,05350,2409808,12703.2943558693,2024,11/4/2024
+19,Bend,Incorporated City Limit Boundary,05800,2409832,23140.6167892957,2024,11/4/2024
+20,Boardman,Incorporated City Limit Boundary,07200,2409873,2804.57683915932,2024,11/4/2024
+21,Bonanza,Incorporated City Limit Boundary,07300,2411707,524.084495522522,2024,11/4/2024
+22,Brookings,Incorporated City Limit Boundary,08650,2409916,2691.62023980808,2024,11/4/2024
+23,Brownsville,Incorporated City Limit Boundary,09050,2409923,859.710211616004,2024,11/4/2024
+24,Burns,Incorporated City Limit Boundary,09800,2409949,2277.7069853369,2024,11/4/2024
+25,Butte Falls,Incorporated City Limit Boundary,10050,2411750,246.356586896481,2024,11/4/2024
+26,Canby,Incorporated City Limit Boundary,10750,2409974,3040.6533431825,2024,11/4/2024
+27,Cannon Beach,Incorporated City Limit Boundary,10850,2409975,972.479859668087,2024,11/4/2024
+28,Canyon City,Incorporated City Limit Boundary,10950,2413162,891.311068179488,2024,11/4/2024
+29,Canyonville,Incorporated City Limit Boundary,11000,2409980,665.777090509918,2024,11/4/2024
+30,Carlton,Incorporated City Limit Boundary,11150,2409986,566.693210935424,2024,11/4/2024
+31,Cascade Locks,Incorporated City Limit Boundary,11600,2409403,1904.14708915901,2024,11/4/2024
+32,Cave Junction,Incorporated City Limit Boundary,11850,2409414,1135.99942524795,2024,11/4/2024
+33,Central Point,Incorporated City Limit Boundary,12400,2409428,2509.83495234312,2024,11/4/2024
+34,Chiloquin,Incorporated City Limit Boundary,13050,2409451,486.910308891387,2024,11/4/2024
+35,Clatskanie,Incorporated City Limit Boundary,13750,2409472,809.097979872165,2024,11/4/2024
+36,Coburg,Incorporated City Limit Boundary,14400,2409497,752.657149740426,2024,11/4/2024
+37,Columbia City,Incorporated City Limit Boundary,14750,2410201,797.007556519444,2024,11/4/2024
+38,Condon,Incorporated City Limit Boundary,15000,2410215,512.647589140127,2024,11/4/2024
+39,Coos Bay,Incorporated City Limit Boundary,15250,2410223,10307.6418999069,2024,11/4/2024
+40,Coquille,Incorporated City Limit Boundary,15350,2410226,1744.44541836039,2024,11/4/2024
+41,Cornelius,Incorporated City Limit Boundary,15550,2410230,1497.61836172569,2024,11/4/2024
+42,Corvallis,Incorporated City Limit Boundary,15800,2410237,9334.90707191257,2024,11/4/2024
+43,Cottage Grove,Incorporated City Limit Boundary,15950,2410241,2495.91039697643,2024,11/4/2024
+44,Cove,Incorporated City Limit Boundary,16250,2410249,513.708331055413,2024,11/4/2024
+45,Creswell,Incorporated City Limit Boundary,16950,2410264,1109.28157293009,2024,11/4/2024
+46,Culver,Incorporated City Limit Boundary,17300,2410275,441.245324137638,2024,11/4/2024
+47,Dallas,Incorporated City Limit Boundary,17700,2410287,3143.98762862885,2024,11/4/2024
+48,Dayton,Incorporated City Limit Boundary,18250,2410299,532.005426406748,2024,11/4/2024
+49,Dayville,Incorporated City Limit Boundary,18300,2412411,307.510310841517,2024,11/4/2024
+50,Depoe Bay,Incorporated City Limit Boundary,18850,2410325,1135.3747809338,2024,11/4/2024
+51,Detroit,Incorporated City Limit Boundary,19100,2410330,612.027346623671,2024,11/4/2024
+52,Donald,Incorporated City Limit Boundary,20100,2410344,267.811150817525,2024,11/4/2024
+53,Drain,Incorporated City Limit Boundary,20500,2410354,397.585828059948,2024,11/4/2024
+54,Dufur,Incorporated City Limit Boundary,20900,2410366,373.685202811863,2024,11/4/2024
+55,Dundee,Incorporated City Limit Boundary,21050,2410370,883.852545776568,2024,11/4/2024
+56,Dunes City,Incorporated City Limit Boundary,21150,2410371,2205.54280460411,2024,11/4/2024
+57,Durham,Incorporated City Limit Boundary,21250,2410376,260.715269979119,2024,11/4/2024
+58,Eagle Point,Incorporated City Limit Boundary,21550,2410382,1886.34173378502,2024,11/4/2024
+59,Echo,Incorporated City Limit Boundary,22200,2410394,524.781323882679,2024,11/4/2024
+60,Elgin,Incorporated City Limit Boundary,22550,2410422,643.303086184135,2024,11/4/2024
+61,Elkton,Incorporated City Limit Boundary,22800,2410429,140.131010683152,2024,11/4/2024
+62,Enterprise,Incorporated City Limit Boundary,23500,2410445,955.11101377441,2024,11/4/2024
+63,Estacada,Incorporated City Limit Boundary,23800,2410457,1673.93500171829,2024,11/4/2024
+64,Eugene,Incorporated City Limit Boundary,23850,2410460,28411.0597127184,2024,11/4/2024
+65,Fairview,Incorporated City Limit Boundary,24250,2410478,2258.53974330905,2024,11/4/2024
+66,Falls City,Incorporated City Limit Boundary,24550,2410482,768.613512207669,2024,11/4/2024
+67,Florence,Incorporated City Limit Boundary,26050,2410511,3898.62131230122,2024,11/4/2024
+68,Forest Grove,Incorporated City Limit Boundary,26200,2410518,3990.66956867388,2024,11/4/2024
+69,Fossil,Incorporated City Limit Boundary,26650,2410533,501.331419181018,2024,11/4/2024
+70,Garibaldi,Incorporated City Limit Boundary,28000,2410571,875.58087460013,2024,11/4/2024
+71,Gaston,Incorporated City Limit Boundary,28100,2410575,221.175245927733,2024,11/4/2024
+72,Gates,Incorporated City Limit Boundary,28200,2410576,405.60966905291,2024,11/4/2024
+73,Gearhart,Incorporated City Limit Boundary,28450,2410578,1172.87286190893,2024,11/4/2024
+74,Gervais,Incorporated City Limit Boundary,28650,2410585,263.008262341074,2024,11/4/2024
+75,Gladstone,Incorporated City Limit Boundary,29000,2410593,1592.73932199778,2024,11/4/2024
+76,Glendale,Incorporated City Limit Boundary,29350,2410599,251.680093667496,2024,11/4/2024
+77,Gold Beach,Incorporated City Limit Boundary,29900,2410609,1835.7470756357,2024,11/4/2024
+78,Gold Hill,Incorporated City Limit Boundary,29950,2410610,462.811622438038,2024,11/4/2024
+79,Granite,Incorporated City Limit Boundary,30500,2410642,242.630596299089,2024,11/4/2024
+80,Grants Pass,Incorporated City Limit Boundary,30550,2410647,7616.15404629362,2024,11/4/2024
+81,Grass Valley,Incorporated City Limit Boundary,30650,2410652,326.388941225587,2024,11/4/2024
+82,Greenhorn,Incorporated City Limit Boundary,31050,2410658,55.3250132073078,2024,11/4/2024
+83,Gresham,Incorporated City Limit Boundary,31250,2410663,15213.6498328645,2024,11/4/2024
+84,Haines,Incorporated City Limit Boundary,31600,2410683,483.721542126319,2024,11/4/2024
+85,Halfway,Incorporated City Limit Boundary,31650,2410686,239.040804446215,2024,11/4/2024
+86,Halsey,Incorporated City Limit Boundary,31750,2410690,361.447621060317,2024,11/4/2024
+87,Happy Valley,Incorporated City Limit Boundary,32050,2410698,7590.96866149971,2024,11/4/2024
+88,Harrisburg,Incorporated City Limit Boundary,32550,2410707,938.816728363032,2024,11/4/2024
+89,Helix,Incorporated City Limit Boundary,33250,2410735,81.4962875434792,2024,11/4/2024
+90,Heppner,Incorporated City Limit Boundary,33550,2410745,786.254508205959,2024,11/4/2024
+91,Hermiston,Incorporated City Limit Boundary,33700,2410748,5485.49243049266,2024,11/4/2024
+92,Hillsboro,Incorporated City Limit Boundary,34100,2410765,17326.6565725377,2024,11/4/2024
+93,Hines,Incorporated City Limit Boundary,34250,2410768,1354.05519064144,2024,11/4/2024
+94,Hood River,Incorporated City Limit Boundary,34900,2410787,2187.8049667551,2024,11/4/2024
+95,Hubbard,Incorporated City Limit Boundary,35450,2410798,529.296673544516,2024,11/4/2024
+96,Huntington,Incorporated City Limit Boundary,35700,2410808,470.067890860624,2024,11/4/2024
+97,Idanha,Incorporated City Limit Boundary,35800,2410094,781.557296540613,2024,11/4/2024
+98,Imbler,Incorporated City Limit Boundary,36050,2410096,138.0485707103,2024,11/4/2024
+99,Independence,Incorporated City Limit Boundary,36150,2410099,2018.9046346685,2024,11/4/2024
+100,Ione,Incorporated City Limit Boundary,36400,2410111,478.724526708012,2024,11/4/2024
+101,Irrigon,Incorporated City Limit Boundary,36500,2410115,1036.99390436094,2024,11/4/2024
+102,Island City,Incorporated City Limit Boundary,36750,2410120,653.209505948129,2024,11/4/2024
+103,Jacksonville,Incorporated City Limit Boundary,37000,2410129,1210.74257198377,2024,11/4/2024
+104,Jefferson,Incorporated City Limit Boundary,37250,2410137,529.709673991022,2024,11/4/2024
+105,John Day,Incorporated City Limit Boundary,37550,2410144,1634.56786613118,2024,11/4/2024
+106,Johnson City,Incorporated City Limit Boundary,37650,2410145,43.3558888238213,2024,11/4/2024
+107,Jordan Valley,Incorporated City Limit Boundary,37850,2410149,1327.20181122947,2024,11/4/2024
+108,Joseph,Incorporated City Limit Boundary,37900,2410150,574.189152363393,2024,11/4/2024
+109,Junction City,Incorporated City Limit Boundary,38000,2410157,2164.37282954257,2024,11/4/2024
+110,Keizer,Incorporated City Limit Boundary,38500,2410171,4646.29060831749,2024,11/4/2024
+111,King City,Incorporated City Limit Boundary,39150,2411545,719.240720585175,2024,11/4/2024
+112,Klamath Falls,Incorporated City Limit Boundary,39700,2411554,13218.7422486568,2024,11/4/2024
+113,La Grande,Incorporated City Limit Boundary,40350,2411568,2977.06720448853,2024,11/4/2024
+114,La Pine,Incorporated City Limit Boundary,41050,2411579,4468.98281187116,2024,11/4/2024
+115,Lafayette,Incorporated City Limit Boundary,40300,2411593,599.982667010961,2024,11/4/2024
+116,Lake Oswego,Incorporated City Limit Boundary,40550,2411606,7455.88538233077,2024,11/4/2024
+117,Lakeside,Incorporated City Limit Boundary,40650,2411611,1432.43757070747,2024,11/4/2024
+118,Lakeview,Incorporated City Limit Boundary,40700,2412870,1993.92822199235,2024,11/4/2024
+119,Lebanon,Incorporated City Limit Boundary,41650,2410815,4551.09347192907,2024,11/4/2024
+120,Lexington,Incorporated City Limit Boundary,42200,2412892,286.594067101889,2024,11/4/2024
+121,Lincoln City,Incorporated City Limit Boundary,42600,2410836,3831.10132236688,2024,11/4/2024
+122,Lonerock,Incorporated City Limit Boundary,43400,2410865,656.84493072751,2024,11/4/2024
+123,Long Creek,Incorporated City Limit Boundary,43550,2410868,646.050623530536,2024,11/4/2024
+124,Lostine,Incorporated City Limit Boundary,43900,2410882,183.194382172907,2024,11/4/2024
+125,Lowell,Incorporated City Limit Boundary,44050,2410889,727.385260730682,2024,11/4/2024
+126,Lyons,Incorporated City Limit Boundary,44300,2410902,562.060726217409,2024,11/4/2024
+127,Madras,Incorporated City Limit Boundary,45250,2410909,5034.80992882967,2024,11/4/2024
+128,Malin,Incorporated City Limit Boundary,45400,2410914,320.0382416244,2024,11/4/2024
+129,Manzanita,Incorporated City Limit Boundary,45700,2411027,530.535880663779,2024,11/4/2024
+130,Maupin,Incorporated City Limit Boundary,46500,2411052,923.075862857954,2024,11/4/2024
+131,Maywood Park,Incorporated City Limit Boundary,46700,2411055,107.475128849077,2024,11/4/2024
+132,McMinnville,Incorporated City Limit Boundary,45000,2411065,6777.74977539393,2024,11/4/2024
+133,Medford,Incorporated City Limit Boundary,47000,2411069,18154.0655820352,2024,11/4/2024
+134,Merrill,Incorporated City Limit Boundary,47700,2411085,292.688825348808,2024,11/4/2024
+135,Metolius,Incorporated City Limit Boundary,47750,2411091,332.916795216956,2024,11/4/2024
+136,Mill City,Incorporated City Limit Boundary,48150,2411107,568.89423960775,2024,11/4/2024
+137,Millersburg,Incorporated City Limit Boundary,48300,2411111,2879.84265706253,2024,11/4/2024
+138,Milton-Freewater,Incorporated City Limit Boundary,48600,2411115,1292.53909884496,2024,11/4/2024
+139,Milwaukie,Incorporated City Limit Boundary,48650,2411116,3299.17443986357,2024,11/4/2024
+140,Mitchell,Incorporated City Limit Boundary,49150,2411126,817.41758056151,2024,11/4/2024
+141,Molalla,Incorporated City Limit Boundary,49450,2411131,1615.41755359616,2024,11/4/2024
+142,Monmouth,Incorporated City Limit Boundary,49550,2411134,1475.80918099753,2024,11/4/2024
+143,Monroe,Incorporated City Limit Boundary,49600,2411135,322.753618994225,2024,11/4/2024
+144,Monument,Incorporated City Limit Boundary,49750,2411152,335.533877490488,2024,11/4/2024
+145,Moro,Incorporated City Limit Boundary,50000,2411166,315.091052932971,2024,11/4/2024
+146,Mosier,Incorporated City Limit Boundary,50050,2411174,402.077760184219,2024,11/4/2024
+147,Mt. Angel,Incorporated City Limit Boundary,50150,2411176,693.150951605179,2024,11/4/2024
+148,Mt. Vernon,Incorporated City Limit Boundary,50250,2411182,441.872692899301,2024,11/4/2024
+149,Myrtle Creek,Incorporated City Limit Boundary,50950,2411204,1637.1790116091,2024,11/4/2024
+150,Myrtle Point,Incorporated City Limit Boundary,51050,2411205,1020.43973150537,2024,11/4/2024
+151,Nehalem,Incorporated City Limit Boundary,51700,2411222,189.197064496239,2024,11/4/2024
+152,Newberg,Incorporated City Limit Boundary,52100,2411240,4014.60330767679,2024,11/4/2024
+153,Newport,Incorporated City Limit Boundary,52450,2411248,7101.50966633006,2024,11/4/2024
+154,North Bend,Incorporated City Limit Boundary,53000,2411269,3254.82884810281,2024,11/4/2024
+155,North Plains,Incorporated City Limit Boundary,53150,2411276,679.593549507157,2024,11/4/2024
+156,North Powder,Incorporated City Limit Boundary,53300,2411277,400.078101176683,2024,11/4/2024
+157,Nyssa,Incorporated City Limit Boundary,53750,2411286,990.970838234439,2024,11/4/2024
+158,Oakland,Incorporated City Limit Boundary,54000,2411293,472.121280326413,2024,11/4/2024
+159,Oakridge,Incorporated City Limit Boundary,54100,2411297,1332.5835180743,2024,11/4/2024
+160,Ontario,Incorporated City Limit Boundary,54900,2411324,3847.98423186058,2024,11/4/2024
+161,Oregon City,Incorporated City Limit Boundary,55200,2411332,6580.85604096412,2024,11/4/2024
+162,Paisley,Incorporated City Limit Boundary,56250,2411353,274.082854663112,2024,11/4/2024
+163,Pendleton,Incorporated City Limit Boundary,57150,2411399,7471.96500336377,2024,11/4/2024
+164,Philomath,Incorporated City Limit Boundary,57450,2411413,1404.93266848313,2024,11/4/2024
+165,Phoenix,Incorporated City Limit Boundary,57500,2411415,1488.93524613336,2024,11/4/2024
+166,Pilot Rock,Incorporated City Limit Boundary,57650,2411422,951.579248501754,2024,11/4/2024
+167,Port Orford,Incorporated City Limit Boundary,59250,2411467,1029.96012317597,2024,11/4/2024
+168,Portland,Incorporated City Limit Boundary,59000,2411471,92878.2176137542,2024,11/4/2024
+169,Powers,Incorporated City Limit Boundary,59600,2411482,418.814951221514,2024,11/4/2024
+170,Prairie City,Incorporated City Limit Boundary,59650,2411484,614.892525660379,2024,11/4/2024
+171,Prescott,Incorporated City Limit Boundary,59750,2411488,48.1116473037758,2024,11/4/2024
+172,Prineville,Incorporated City Limit Boundary,59850,2411494,7733.26485128782,2024,11/4/2024
+173,Rainier,Incorporated City Limit Boundary,60850,2411511,3278.91923579373,2024,11/4/2024
+174,Redmond,Incorporated City Limit Boundary,61200,2411533,11938.4860531957,2024,11/4/2024
+175,Reedsport,Incorporated City Limit Boundary,61300,2410921,1432.18946500265,2024,11/4/2024
+176,Richland,Incorporated City Limit Boundary,61700,2410936,63.7954316428335,2024,11/4/2024
+177,Riddle,Incorporated City Limit Boundary,61850,2410943,393.866956929585,2024,11/4/2024
+178,Rivergrove,Incorporated City Limit Boundary,62250,2410964,116.797985305068,2024,11/4/2024
+179,Rockaway Beach,Incorporated City Limit Boundary,62900,2410977,1035.05923229882,2024,11/4/2024
+180,Rogue River,Incorporated City Limit Boundary,63450,2410984,617.699316101492,2024,11/4/2024
+181,Roseburg,Incorporated City Limit Boundary,63650,2410997,7037.58235427805,2024,11/4/2024
+182,Rufus,Incorporated City Limit Boundary,64200,2411013,892.49172953062,2024,11/4/2024
+183,Salem,Incorporated City Limit Boundary,64900,2411764,31721.5856051112,2024,11/4/2024
+184,Sandy,Incorporated City Limit Boundary,65250,2411809,2375.14944332987,2024,11/4/2024
+185,Scappoose,Incorporated City Limit Boundary,65500,2411837,2244.39313789779,2024,11/4/2024
+186,Scio,Incorporated City Limit Boundary,65650,2411840,277.989485670454,2024,11/4/2024
+187,Scotts Mills,Incorporated City Limit Boundary,65800,2411843,234.751331586486,2024,11/4/2024
+188,Seaside,Incorporated City Limit Boundary,65950,2411854,2616.43399377391,2024,11/4/2024
+189,Seneca,Incorporated City Limit Boundary,66200,2411867,521.526790352675,2024,11/4/2024
+190,Shady Cove,Incorporated City Limit Boundary,66550,2411872,1297.95685859405,2024,11/4/2024
+191,Shaniko,Incorporated City Limit Boundary,66700,2411876,318.210858553025,2024,11/4/2024
+192,Sheridan,Incorporated City Limit Boundary,67050,2411886,1265.35228665102,2024,11/4/2024
+193,Sherwood,Incorporated City Limit Boundary,67100,2411889,3151.4534762161,2024,11/4/2024
+194,Siletz,Incorporated City Limit Boundary,67500,2411900,403.941045027086,2024,11/4/2024
+195,Silverton,Incorporated City Limit Boundary,67650,2411902,2279.14827610431,2024,11/4/2024
+196,Sisters,Incorporated City Limit Boundary,67950,2411907,1224.78306626275,2024,11/4/2024
+197,Sodaville,Incorporated City Limit Boundary,68550,2411922,194.154008844237,2024,11/4/2024
+198,Spray,Incorporated City Limit Boundary,69450,2413318,175.054956618929,2024,11/4/2024
+199,Springfield,Incorporated City Limit Boundary,69600,2411961,10327.5720253042,2024,11/4/2024
+200,St. Helens,Incorporated City Limit Boundary,64600,2411759,3783.89114239712,2024,11/4/2024
+201,St. Paul,Incorporated City Limit Boundary,64850,2411763,187.215187238524,2024,11/4/2024
+202,Stanfield,Incorporated City Limit Boundary,69900,2411967,1182.51431947435,2024,11/4/2024
+203,Stayton,Incorporated City Limit Boundary,70200,2411975,2010.74868884294,2024,11/4/2024
+204,Sublimity,Incorporated City Limit Boundary,70700,2411991,606.911757114544,2024,11/4/2024
+205,Summerville,Incorporated City Limit Boundary,70850,2413348,166.700885269087,2024,11/4/2024
+206,Sumpter,Incorporated City Limit Boundary,71000,2412002,1395.60312696854,2024,11/4/2024
+207,Sutherlin,Incorporated City Limit Boundary,71650,2412018,4166.35530046667,2024,11/4/2024
+208,Sweet Home,Incorporated City Limit Boundary,71950,2412022,3711.34350161963,2024,11/4/2024
+209,Talent,Incorporated City Limit Boundary,72500,2412031,836.556599887153,2024,11/4/2024
+210,Tangent,Incorporated City Limit Boundary,72600,2412033,2417.06311596503,2024,11/4/2024
+211,The Dalles,Incorporated City Limit Boundary,72950,2412059,4455.66905969736,2024,11/4/2024
+212,Tigard,Incorporated City Limit Boundary,73650,2412069,8156.06029234172,2024,11/4/2024
+213,Tillamook,Incorporated City Limit Boundary,73700,2412070,1209.23917555672,2024,11/4/2024
+214,Toledo,Incorporated City Limit Boundary,74000,2412076,1517.06332785034,2024,11/4/2024
+215,Troutdale,Incorporated City Limit Boundary,74850,2412098,3857.53685532886,2024,11/4/2024
+216,Tualatin,Incorporated City Limit Boundary,74950,2412103,5345.69468957744,2024,11/4/2024
+217,Turner,Incorporated City Limit Boundary,75150,2412115,932.682631372929,2024,11/4/2024
+218,Ukiah,Incorporated City Limit Boundary,75550,2412126,141.636955621234,2024,11/4/2024
+219,Umatilla,Incorporated City Limit Boundary,75650,2412127,3544.1409630846,2024,11/4/2024
+220,Union,Incorporated City Limit Boundary,75850,2412129,1599.50113502232,2024,11/4/2024
+221,Unity,Incorporated City Limit Boundary,76250,2412133,410.789726493378,2024,11/4/2024
+222,Vale,Incorporated City Limit Boundary,76600,2412141,752.669049718607,2024,11/4/2024
+223,Veneta,Incorporated City Limit Boundary,77050,2412148,1639.44850769699,2024,11/4/2024
+224,Vernonia,Incorporated City Limit Boundary,77250,2412152,1085.80753870301,2024,11/4/2024
+225,Waldport,Incorporated City Limit Boundary,78000,2412167,2108.54915071577,2024,11/4/2024
+226,Wallowa,Incorporated City Limit Boundary,78150,2412172,394.554048812236,2024,11/4/2024
+227,Warrenton,Incorporated City Limit Boundary,78900,2412184,10927.2809121603,2024,11/4/2024
+228,Wasco,Incorporated City Limit Boundary,78950,2412186,647.910171951722,2024,11/4/2024
+229,Waterloo,Incorporated City Limit Boundary,79050,2413454,78.6139913436949,2024,11/4/2024
+230,West Linn,Incorporated City Limit Boundary,80150,2412224,5205.33281372782,2024,11/4/2024
+231,Westfir,Incorporated City Limit Boundary,79950,2412234,200.489367464552,2024,11/4/2024
+232,Weston,Incorporated City Limit Boundary,80350,2412241,357.01193074532,2024,11/4/2024
+233,Wheeler,Incorporated City Limit Boundary,81300,2412250,328.293844210924,2024,11/4/2024
+234,Willamina,Incorporated City Limit Boundary,82350,2412264,622.664926736886,2024,11/4/2024
+235,Wilsonville,Incorporated City Limit Boundary,82800,2412277,5039.57834735119,2024,11/4/2024
+236,Winston,Incorporated City Limit Boundary,83400,2412287,1746.64499688201,2024,11/4/2024
+237,Wood Village,Incorporated City Limit Boundary,83950,2412294,609.364855839894,2024,11/4/2024
+238,Woodburn,Incorporated City Limit Boundary,83750,2412296,3907.80324022681,2024,11/4/2024
+239,Yachats,Incorporated City Limit Boundary,84200,2412313,592.359440345109,2024,11/4/2024
+240,Yamhill,Incorporated City Limit Boundary,84250,2412316,311.873026194631,2024,11/4/2024
+241,Yoncalla,Incorporated City Limit Boundary,84600,2412320,414.530829781688,2024,11/4/2024
