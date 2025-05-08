@@ -2,3 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
+# Ignore raw PUMS microdata
+/data/usa_00003.dta
+/data/usa_00003.dta.gz
