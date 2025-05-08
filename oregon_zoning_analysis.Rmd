@@ -1,0 +1,327 @@
+---
+title: "Oregon Zoning Analysis"
+author: "Cassidy Dalva and Thao Phan"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+# Introduction
+
+# 2000-2023 Census Tract Assignment to Target Cities
+
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+# Load required libraries
+library(sf)
+library(dplyr)
+library(readr)
+library(here)
+library(tibble)
+library(stringr)
+
+# Define project directories
+data_dir   <- here("data")   # raw data path
+output_dir <- here("output") # output folder
+if (!dir.exists(output_dir)) dir.create(output_dir)
+
+# Define target cities
+target_cities <- tibble(
+  city = c(
+    "Baker City", "Eagle Point", "North Bend", "Sweet Home",
+    "Ashland", "Cottage Grove", "Klamath Falls", "Newberg",
+    "Newport", "Ontario", "Prineville", "Roseburg",
+    "Sandy", "Silverton", "Forest Grove", "Tualatin", "West Linn"
+  )
+)
+
+# Read and validate tract shapefiles for each decade
+tracts00 <- st_read(here(data_dir, "tl_2010_41_tract00", "tl_2010_41_tract00.shp"), quiet = TRUE) %>% st_make_valid()
+tracts10 <- st_read(here(data_dir, "tl_2010_41_tract10", "tl_2010_41_tract10.shp"), quiet = TRUE) %>% st_make_valid()
+tracts20 <- st_read(here(data_dir, "oregon_census_tracts", "CensusTracts.shp"), quiet = TRUE) %>% st_make_valid()
+
+# Read and validate city limits
+cities <- st_read(here(data_dir, "oregon_city_limits", "City_Limits.shp"), quiet = TRUE) %>% st_make_valid()
+
+# Harmonize coordinate systems
+cities00 <- st_transform(cities, st_crs(tracts00))
+cities10 <- st_transform(cities, st_crs(tracts10))
+cities20 <- st_transform(cities, st_crs(tracts20))
+
+# Helper to spatially join tracts → cities and extract correct GEOID field
+assign_city <- function(tracts, cities, out_id) {
+  # detect existing GEOID column
+  id_col <- grep("^GEOID", names(tracts), value = TRUE)[1]
+  if (!is.na(id_col)) {
+    tr <- tracts %>% select(all_of(id_col), geometry)
+    name_col <- id_col
+  } else {
+    # reconstruct GEOID from state, county, tract codes
+    state_col  <- grep("^STATEFP", names(tracts), value = TRUE)[1]
+    county_col <- grep("^COUNTYFP", names(tracts), value = TRUE)[1]
+    tract_col  <- grep("^TRACTCE", names(tracts), value = TRUE)[1]
+    tr <- tracts %>%
+      mutate(tempGEOID = paste0(
+        str_pad(.data[[state_col]],  2, pad = "0"),
+        str_pad(.data[[county_col]], 3, pad = "0"),
+        str_pad(.data[[tract_col]],  6, pad = "0")
+      ))
+    name_col <- "tempGEOID"
+  }
+
+  st_join(
+    tr %>% select(all_of(name_col)),
+    cities %>% select(CITYNAME),
+    join = st_intersects,
+    left = FALSE
+  ) %>%
+    st_drop_geometry() %>%
+    transmute(
+      !!out_id := as.character(.data[[name_col]]),
+      city       = CITYNAME
+    ) %>%
+    filter(city %in% target_cities$city) %>%
+    distinct()
+}
+
+# Build per-decade tract→city lookups
+t_2000 <- assign_city(tracts00, cities00, "GEOID2000")
+t_2010 <- assign_city(tracts10, cities10, "GEOID2010")
+t_2020 <- assign_city(tracts20, cities20, "GEOID2020")
+
+# Summarize: one row per city, three columns of GEOID lists by decade
+table_by_decade <- target_cities %>%
+  left_join(
+    t_2000  %>% group_by(city) %>% summarise(tracts2000 = paste(GEOID2000, collapse = ", ")),
+    by = "city"
+  ) %>%
+  left_join(
+    t_2010  %>% group_by(city) %>% summarise(tracts2010 = paste(GEOID2010, collapse = ", ")),
+    by = "city"
+  ) %>%
+  left_join(
+    t_2020  %>% group_by(city) %>% summarise(tracts2020 = paste(GEOID2020, collapse = ", ")),
+    by = "city"
+  )
+
+# Print and write to CSV
+print(table_by_decade)
+write_csv(table_by_decade, file.path(output_dir, "tracts_by_city_decades.csv"))
+```
+
+
+# Build Tract-Level Panel
+```{r city-year-aggregation, message=FALSE, warning=FALSE}
+# 0) libraries
+library(dplyr)
+library(readr)
+library(purrr)
+library(stringr)
+library(tidyr)
+library(here)
+
+# 1) read & clean your decade‐by‐city lookup
+dec_map <- read_csv(here("output","tracts_by_city_decades.csv")) %>%
+  mutate(across(starts_with("tracts"), as.character))
+
+# explode into one row per (city, decade, GEOID)
+dec_panel <- dec_map %>%
+  pivot_longer(
+    cols      = starts_with("tracts"),
+    names_to  = "decade_col",
+    values_to = "GEOID"
+  ) %>%
+  filter(!is.na(GEOID) & GEOID != "") %>%
+  separate_rows(GEOID, sep = ",\\s*") %>%
+  mutate(
+    decade = case_when(
+      decade_col == "tracts2000" ~ 2000L,
+      decade_col == "tracts2010" ~ 2010L,
+      decade_col == "tracts2020" ~ 2020L
+    ),
+    GEOID = str_trim(GEOID)
+  ) %>%
+  select(city, decade, GEOID)
+
+# 2) read & stack all SE files, pad Geo_FIPS → 11-char string
+se_panel <- map_dfr(2017:2023, function(yr) {
+  df <- read_csv(here("data", paste0("oregon_", yr, ".csv")),
+                 show_col_types = FALSE)
+
+  df %>%
+    mutate(
+      YEAR     = yr,
+      # pad the double Geo_FIPS into an 11-digit string
+      GEOID    = str_pad(as.character(round(Geo_FIPS)), width = 11, pad = "0")
+    ) %>%
+    select(YEAR, GEOID, starts_with("SE_"))
+})
+
+# 3) assign each tract‐year a primary & fallback decade,
+#    then join first to primary, then fallback for any misses
+city_panel_raw <- se_panel %>%
+  mutate(
+    dec_primary  = if_else(YEAR < 2020, 2010L, 2020L),
+    dec_fallback = if_else(YEAR < 2010, 2000L,
+                      if_else(YEAR < 2020, 2000L, 2020L))
+  ) %>%
+  # first, bring in the primary
+  left_join(dec_panel, 
+            by = c("dec_primary"="decade", "GEOID")) %>%
+  rename(city1 = city) %>%
+  # then bring in fallback for any NA
+  left_join(dec_panel,
+            by = c("dec_fallback"="decade","GEOID")) %>%
+  rename(city2 = city) %>%
+  # coalesce into a single city column
+  mutate(city = coalesce(city1, city2)) %>%
+  filter(!is.na(city)) %>%
+  select(-dec_primary, -dec_fallback, -city1, -city2)
+
+# 4) specify your thematic “must-have” medians
+must_haves <- c(
+  "SE_A14006_001",  # median household income
+  "SE_B25063_001",  # median gross rent
+  "SE_B25077_001"   # median home value
+)
+
+# 5) of the rest, keep only those ≥80% non-NA
+coverage   <- city_panel_raw %>%
+  summarise(across(starts_with("SE_"), ~ mean(!is.na(.x))))
+valid_vars <- names(coverage)[coverage >= 0.8]
+
+# 6) rank by SD; drop must_haves; take enough to hit 50 total
+sd_order <- city_panel_raw %>%
+  summarise(across(all_of(valid_vars),
+                   ~ sd(.x, na.rm=TRUE), 
+                   .names="sd_{.col}")) %>%
+  pivot_longer(everything(), names_to="sd_var", values_to="sd") %>%
+  mutate(var = sub("^sd_","",sd_var)) %>%
+  arrange(desc(sd)) %>%
+  pull(var)
+
+top_by_sd     <- setdiff(sd_order, must_haves)[1:(50 - length(must_haves))]
+selected_vars <- intersect(c(must_haves, top_by_sd), names(city_panel_raw))
+
+# 7) split medians vs counts
+median_vars <- intersect(must_haves, selected_vars)
+count_vars  <- setdiff(selected_vars, median_vars)
+
+# 8) aggregate up to city × year
+city_panel_50 <- city_panel_raw %>%
+  group_by(YEAR, city) %>%
+  summarise(
+    across(all_of(count_vars),  ~ sum(.x, na.rm=TRUE)),
+    across(all_of(median_vars),
+           ~ weighted.mean(.x, w = SE_A00001_001, na.rm=TRUE)),
+    .groups = "drop"
+  )
+
+# 9) inspect
+print(city_panel_50)
+write_csv(city_panel_50, here("output","city_panel_50.csv"))
+```
+```{r city-year-aggregation, message=FALSE, warning=FALSE}
+city_panel_50 <- city_panel_50 %>% 
+  rename(
+    # Aggregate income (2023 $) for population 15 yrs +
+    agg_income_15plus             = SE_A14022_001,
+    # Aggregate income 15 yrs + by race: total
+    agg_income_15plus_race_tot    = SE_A14023_001,
+    # Aggregate household income (2023 $)
+    agg_household_income          = SE_A14018_001,
+    # Aggregate household income by race: total
+    agg_household_income_race_tot = SE_A14019_001,
+    # Aggregate household income – White alone householder
+    agg_household_income_white    = SE_A14019_002,
+    # Aggregate family income (2023 $)
+    agg_family_income             = SE_A14020_001,
+    # Aggregate income 15 yrs + – White alone
+    agg_income_15plus_white       = SE_A14023_002,
+    # Aggregate household income – White alone, not Hispanic
+    agg_household_income_white_nh = SE_A14019_010,
+    # Aggregate income 15 yrs + – White alone, not Hispanic
+    agg_income_15plus_white_nh    = SE_A14023_010,
+    # Aggregate non‑family household income (2023 $)
+    agg_nonfamily_income          = SE_A14021_001,
+    # Aggregate household income – Hispanic/Latino householder
+    agg_household_income_hisp     = SE_A14019_009,
+    # Aggregate income 15 yrs + – Hispanic/Latino
+    agg_income_15plus_hisp        = SE_A14023_009,
+    # Aggregate income 15 yrs + – Two or more races
+    agg_income_15plus_two_races   = SE_A14023_008,
+    # Aggregate gross rent for specified renter‑occupied units
+    agg_gross_rent                = SE_A18004_001,
+    # Mean household income – Top 5 percent
+    mean_hh_income_top5pct        = SE_A14027_006,
+    # Median house value (owner‑occupied units)
+    median_owner_home_value       = SE_A10036_001,
+    # Mean household income – Highest quintile
+    mean_hh_income_q5             = SE_A14027_005,
+    # Average household income – Hispanic/Latino householder
+    avg_household_income_hisp     = SE_A14009_009,
+    # Average household income – Two or more races
+    avg_household_income_two      = SE_A14009_008,
+    # Household‑income upper limit – Fourth quintile
+    inc_q4_limit                  = SE_A14026_004,
+    # Household‑income lower limit – Top 5 percent
+    inc_top5pct_lower_limit       = SE_A14026_005,
+    # Average family income (2023 $)
+    avg_family_income             = SE_A14011_001,
+    # Mean household income – Fourth quintile (alt. table)
+    mean_hh_income_q4_alt         = SE_A14027_004,
+    # Average household income – White alone householder
+    avg_household_income_white    = SE_A14009_002,
+    # Average household income – White alone, not Hispanic
+    avg_household_income_white_nh = SE_A14009_010,
+    # Average household income (all households)
+    avg_household_income          = SE_A14008_001,
+    # Average household income by race: total
+    avg_household_income_race_tot = SE_A14009_001,
+    # Household‑income upper limit – Third quintile
+    inc_q3_limit                  = SE_A14026_003,
+    # Median family income (2023 $)
+    median_family_income          = SE_A14010_001,
+    # Median household income – Owner‑occupied units
+    median_hh_inc_owner           = SE_A14015_002,
+    # Median household income by race – White non‑Hispanic
+    median_hh_income_white_nh     = SE_A14007_010,
+    # Median household income – White householder
+    median_hh_income_white        = SE_A14007_002,
+    # Median household income – All households
+    median_hh_income              = SE_A14007_001,
+    # Median household income – All occupied units
+    median_hh_inc_all_units       = SE_A14015_001,
+    # Mean household income – Third quintile
+    mean_hh_income_q3             = SE_A14027_003,
+    # Median income 15 yrs + – Male, worked FT/YR
+    median_inc_15plus_male_ftyr   = SE_A14014_003,
+    # Household‑income upper limit – Second quintile
+    inc_q2_limit                  = SE_A14026_002,
+    # Median earnings – Male
+    median_earnings_male          = SE_A15001_007,
+    # Median household income – Renter‑occupied units
+    median_hh_inc_renter          = SE_A14015_003,
+    # Median household income past‑12‑mo (renters)
+    median_hh_inc_past12_renters  = SE_A14016_001,
+    # Average non‑family income (2023 $)
+    avg_nonfamily_income          = SE_A14013_001,
+    # Mean household income – Second quintile
+    mean_hh_income_q2             = SE_A14027_002,
+    # Median earnings – Bachelor’s degree
+    median_earnings_bachelor      = SE_A15001_005,
+    # Median income 15 yrs + – Male
+    median_inc_15plus_male        = SE_A14014_002,
+    # Median non‑family household income
+    median_nonfamily_income       = SE_A14012_001,
+    # Median earnings – Male: Some college/AA
+    median_earnings_male_somecoll = SE_A15001_010,
+    # Median earnings – Male: HS graduate
+    median_earnings_male_hs       = SE_A15001_009,
+    # Median household income (2023 $)
+    median_household_income       = SE_A14006_001
+  )
+
+write_csv(city_panel_50, here("output","city_panel_50.csv"))
+```
