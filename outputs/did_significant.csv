@@ -1,0 +1,14 @@
+Variable,Estimate,Std.Err.,p-value
+agg_income_15plus,169793879.808,68428671.622,0.025
+agg_income_15plus_race_tot,169793879.808,68428671.622,0.025
+agg_household_income,168570840.865,69587726.316,0.028
+agg_household_income_race_tot,168570840.865,69587726.316,0.028
+agg_household_income_white,125403639.583,54257279.798,0.034
+agg_family_income,154273788.141,64042512.538,0.028
+agg_income_15plus_white,121988912.019,51225735.859,0.03
+agg_household_income_white_nh,133929135.096,55635678.802,0.029
+agg_income_15plus_white_nh,128031462.821,53809969.391,0.03
+agg_household_income_hisp,27413475.481,9277591.768,0.009
+agg_income_15plus_hisp,32860098.237,9096068.458,0.002
+agg_income_15plus_two_races,38907431.891,12508433.722,0.007
+avg_household_income_hisp,193002.615,80350.827,0.029

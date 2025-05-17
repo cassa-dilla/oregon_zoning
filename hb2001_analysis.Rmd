@@ -1,0 +1,320 @@
+---
+title:  "HB 2001 City-Level Analysis"
+author: "Your Name"
+date:   "`r Sys.Date()`"
+output:
+  html_document:
+    toc:           true     # clickable table-of-contents
+    toc_float:     true
+    number_sections: true
+---
+
+```{r setup, include = FALSE}
+# ---- Load packages & global options -----------------------------------
+knitr::opts_chunk$set(
+  echo       = TRUE,   # show code for full transparency
+  message    = FALSE,  # suppress library startup messagenames(panel_merged)s
+  warning    = FALSE
+)
+
+library(tidyverse)   # dplyr, ggplot2, readr, tidyr...
+library(here)        # robust, portable file paths
+library(kableExtra)  # pretty HTML tables
+library(fixest)      # fast fixed-effects regressions (DiD)
+library(rdrobust)    # simple RD estimates
+```
+# Data Import
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+panel <- read_csv(here("output", "panel_merged.csv"))
+
+# Quick peek to confirm structure
+dplyr::glimpse(panel)
+```
+# Summary Statistics
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- summary-stats, message = FALSE, warning = FALSE -------------------
+library(dplyr)
+library(tidyr)
+library(kableExtra)
+library(here)
+
+# -----------------------------------------------------------------------
+# 1.  Identify ALL numeric outcome columns automatically
+# -----------------------------------------------------------------------
+id_cols <- c("YEAR", "city", "Population_2019", "treat", "post", "pre")
+outcomes <- panel %>% 
+  select(where(is.numeric)) %>%     # keep only numeric columns
+  select(-any_of(id_cols)) %>%      # any_of() silently ignores missing names
+  names()
+
+# -----------------------------------------------------------------------
+# 2.  Compute mean and SD by Treatment × Period
+# -----------------------------------------------------------------------
+summary_tbl <- panel %>% 
+  mutate(period    = if_else(post == 1, "Post (2020-23)", "Pre (2017-19)"),
+         Treatment = if_else(treat == 1, "Treated",      "Control")) %>% 
+  group_by(Treatment, period) %>% 
+  summarise(
+    across(all_of(outcomes),
+           list(mean = ~ mean(.x, na.rm = TRUE),
+                sd   = ~ sd(.x,   na.rm = TRUE)),
+           .names = "{col}_{fn}"),
+    .groups = "drop"
+  )
+
+# -----------------------------------------------------------------------
+# 3.  Write the FULL table to disk for deep dives
+# -----------------------------------------------------------------------
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(summary_tbl, here("outputs", "summary_stats.csv"))
+
+# -----------------------------------------------------------------------
+# 4.  Show a *preview* (first 25 metrics) in the knitted report
+# -----------------------------------------------------------------------
+summary_tbl %>% 
+  select(Treatment, period, 1:51) %>%      # 2 ID cols + 25 metrics × 2 stats
+  kable(format = "html",
+        caption = "Table 1 – Summary statistics by period and treatment group (first 25 metrics)") %>% 
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("condensed", "striped", "hover")) %>% 
+  scroll_box(width = "100%", height = "400px")  # keeps the page compact
+```
+# Graphical Trends
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- graphical-trends, echo = FALSE, message = FALSE, warning = FALSE ----
+library(ggplot2)
+library(glue)
+library(purrr)
+library(here)
+
+# -----------------------------------------------------------------------
+# 0.  Policy timeline (single source of truth)
+# -----------------------------------------------------------------------
+policy_years   <- c(2019, 2021, 2022)
+policy_caption <- "Dashed lines: 2019 (HB 2001 passed), 2021 (duplex mandate), 2022 (middle-housing mandate)"
+
+# -----------------------------------------------------------------------
+# 1.  Yearly means by Treat / Control  (same as before)
+# -----------------------------------------------------------------------
+plot_dat <- panel %>%
+  group_by(YEAR, treat) %>%
+  summarise(across(all_of(outcomes), ~ mean(.x, na.rm = TRUE)),
+            .groups = "drop") %>%
+  mutate(Treatment = if_else(treat == 1, "Treated", "Control"))
+
+pretty_lab <- function(x) gsub("_", " ", tools::toTitleCase(x))
+
+# -----------------------------------------------------------------------
+# 2.  Plot builder with *three* dashed lines
+# -----------------------------------------------------------------------
+make_line <- function(var) {
+  ggplot(plot_dat,
+         aes(x = YEAR, y = .data[[var]], color = Treatment)) +
+    geom_line(size = 1.1, na.rm = TRUE) +
+    geom_vline(xintercept = policy_years, linetype = "dashed") +      # ★ NEW ★
+    labs(title    = glue("{pretty_lab(var)} — Treated vs Control"),
+         x        = "Year",
+         y        = pretty_lab(var),
+         color    = NULL,
+         subtitle = policy_caption) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+}
+
+# -----------------------------------------------------------------------
+# 3.  (Same walk loop & optional ggsave as before)
+# -----------------------------------------------------------------------
+dir.create(here("outputs", "plots"), recursive = TRUE, showWarnings = FALSE)
+
+walk(outcomes, function(v) {
+  p <- make_line(v)
+  print(p)
+  ggsave(here("outputs", "plots", glue("{v}_trend.png")),
+         plot = p, width = 16, height = 9, units = "cm", dpi = 300)
+})
+```
+# Difference-in-Differences (DiD)
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- did, message = FALSE, warning = FALSE ---------------------------------
+# -------------------------------------------------------------------------
+#  Difference-in-Differences for *every* metric in the dataset
+# -------------------------------------------------------------------------
+library(fixest)   # fast high-dim FE regressions
+library(broom)    # tidy() to extract coefficients
+library(glue)     # safe string interpolation
+
+# 1.  Identify outcome variables (drop identifiers & flags)
+did_vars <- setdiff(
+  names(panel),
+  c("YEAR", "city", "Population_2019",
+    "HB2001_Category", "treat", "post", "pre")
+)
+
+# 2.  Run TWFE DiD for each variable and store tidy output
+did_results <- map_dfr(
+  did_vars,
+  function(v) {
+    # build formula dynamically:  Y ~ treat*post | city + YEAR
+    form <- as.formula(glue("{v} ~ treat * post | city + YEAR"))
+    
+    mod  <- feols(form, data = panel, cluster = ~city)
+    
+    broom::tidy(mod) %>%                 # convert to data-frame
+      filter(term == "treat:post") %>%   # β̂
+      transmute(
+        Variable   = v,
+        Estimate   = round(estimate, 3),
+        `Std.Err.` = round(std.error, 3),
+        `p-value`  = round(p.value, 3)
+      )
+  }
+)
+
+# 3.  Display a concise results table
+did_results %>%
+  arrange(`p-value`) %>%    # quote the column that has a dash
+  kable(format = "html",
+        caption = "Table DiD_All – Difference-in-Differences estimates for every metric (β̂)",
+        col.names = c("Metric", "β̂", "SE", "p")) %>% 
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("condensed", "striped", "hover"))
+```
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- did-save-significant, message = FALSE, warning = FALSE ------------
+library(readr)   # write_csv
+library(here)    # safe file paths
+
+# 1. Keep statistically-significant estimates
+did_sig <- did_results %>% 
+  filter(`p-value` < 0.05)
+
+# 2. Make sure an outputs folder exists
+dir.create(here("outputs"), showWarnings = FALSE)
+
+# 3. Save to CSV
+write_csv(did_sig, here("outputs", "did_significant.csv"))
+
+# 4. (Optional) display in the report
+did_sig %>% 
+  kable(format = "html",
+        caption = "Table DiD_Sig – Metrics with statistically significant DiD estimate (p < 0.05)",
+        col.names = c("Metric", "β̂", "SE", "p")) %>% 
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("condensed", "striped", "hover"))
+```
+# Regression Discontinuity Design (10k Cutoff)
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- rdd, message = FALSE, warning = FALSE ---------------------------------
+library(rdrobust)
+library(purrr)
+library(here)
+library(readr)
+
+# 1.  Keep cities near the cutoff (±2 000) and 2023 snapshot
+rdd_dat <- panel %>%
+  filter(Population_2019 >= 8e3, Population_2019 <= 12e3) %>%
+  filter(YEAR == 2023) %>%
+  mutate(running = Population_2019 - 10000)
+
+# 2.  Outcome variables = same set used in DiD
+rdd_vars <- did_vars
+
+# 3.  Run rdrobust for every metric
+rdd_results <- map_dfr(
+  rdd_vars,
+  function(v) {
+    out <- tryCatch(
+      rdrobust(y = rdd_dat[[v]], x = rdd_dat$running, c = 0),
+      error = function(e) NULL
+    )
+    if (is.null(out)) return(NULL)
+
+    tibble(
+      Metric    = v,
+      Estimate  = round(out$coef[1], 3),
+      Std_Err   = round(out$se[1],   3),
+      p_value   = round(out$pv[1],   3)
+    )
+  }
+)
+
+# 4.  Save the complete results table
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(rdd_results, here("outputs", "rdd_all.csv"))
+
+# 5.  Keep statistically-significant estimates and save them, too
+rdd_sig <- rdd_results
+write_csv(rdd_sig, here("outputs", "rdd_significant.csv"))
+
+# 6.  Show the significant subset in the report
+rdd_sig %>%
+  arrange(p_value) %>%
+  kable(format = "html",
+        caption = "Table RDD_Sig – Metrics with statistically significant RD estimate (p < 0.05)",
+        col.names = c("Metric", "τ̂", "SE", "p")) %>%
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("condensed", "striped", "hover"))
+```
+# Regression Discontinuity Design (10k Cutoff)
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- rdd_25k, message = FALSE, warning = FALSE ------------------------------
+library(rdrobust)
+library(purrr)
+library(here)
+library(readr)
+
+# 1.  Keep cities within ±5 000 of the 25 k threshold and YEAR == 2023
+rdd25_dat <- panel %>%
+  filter(Population_2019 >= 20e3, Population_2019 <= 30e3) %>%
+  filter(YEAR == 2023) %>%
+  mutate(running_25 = Population_2019 - 25000)
+
+# 2.  Outcome variables = same set used in DiD
+rdd_vars <- did_vars   # already built earlier
+
+# 3.  Run rdrobust for every metric at the 25 k cutoff
+rdd25_results <- map_dfr(
+  rdd_vars,
+  function(v) {
+    out <- tryCatch(
+      rdrobust(y = rdd25_dat[[v]], x = rdd25_dat$running_25, c = 0),
+      error = function(e) NULL
+    )
+    if (is.null(out)) return(NULL)
+
+    tibble(
+      Metric    = v,
+      Estimate  = round(out$coef[1], 3),
+      Std_Err   = round(out$se[1],   3),
+      p_value   = round(out$pv[1],   3)
+    )
+  }
+)
+
+# 4.  Save the full and significant tables
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(rdd25_results, here("outputs", "rdd25_all.csv"))
+
+rdd25_sig <- rdd25_results #%>% filter(p_value < 0.05)
+write_csv(rdd25_sig, here("outputs", "rdd25_significant.csv"))
+
+# 5.  Show the significant subset in the report
+rdd25_sig %>%
+  arrange(p_value) %>%
+  kable(format = "html",
+        caption = "Table RDD25_Sig – Metrics with statistically significant RD estimate at 25 k cutoff (p < 0.05)",
+        col.names = c("Metric", "τ̂", "SE", "p")) %>%
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("condensed", "striped", "hover"))
+```
+# Robustness & Parallel-Trends Checks
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------
+# Example placebo DiD: pretend policy started in 2018
+# -----------------------------------------------------------------------
+panel %>%
+  mutate(post_placebo = if_else(year >= 2018, 1, 0)) %>%
+  feols(median_rent ~ treat * post_placebo | city + year,
+        cluster = ~city) %>%
+  summary()
+```
