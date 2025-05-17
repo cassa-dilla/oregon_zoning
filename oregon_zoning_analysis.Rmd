@@ -325,3 +325,35 @@ city_panel_50 <- city_panel_50 %>%
 
 write_csv(city_panel_50, here("output","city_panel_50.csv"))
 ```
+# 2000-2023 Census Tract Assignment to Target Cities
+
+```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
+## ---- data-prep-merge-indicators, message = FALSE, warning = FALSE ----
+library(dplyr)   # data wrangling
+library(readr)   # fast CSV import/export
+library(here)    # file paths that work everywhere
+
+# 1.  READ SOURCE TABLES --------------------------------------------------
+city_panel  <- read_csv(here("output", "city_panel_50.csv"))
+hb_category <- read_csv(here("data", "HB_2001_Category - Sheet1.csv"))
+
+# 2.  MERGE & ADD FLAGS ---------------------------------------------------
+panel_merged <- city_panel %>% 
+  left_join(hb_category, by = c("city" = "City")) %>% 
+  mutate(
+    treat = if_else(HB2001_Category %in% c("Medium", "Large/Metro"), 1, 0),
+    post  = if_else(YEAR >= 2020, 1, 0),
+    pre   = 1 - post
+  )
+
+# 3.  QUICK CHECK ---------------------------------------------------------
+panel_merged %>% 
+  count(treat, post) %>% 
+  tidyr::pivot_wider(names_from  = post,
+                     values_from = n,
+                     names_prefix = "post_") %>% 
+  knitr::kable(caption = "Cell counts after merge (treat × post)")
+
+# 4.  SAVE THE MERGED DATASET --------------------------------------------
+write_csv(panel_merged, here("output", "panel_merged.csv"))
+```
