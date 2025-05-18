@@ -1,0 +1,513 @@
+---
+title:  "HB 2001 City-Level DiD Analysis"
+author: "Cassidy Dalva and Thao Phan"
+date:   "`r Sys.Date()`"
+output:
+  html_document:
+    toc:           true     # clickable table-of-contents
+    toc_float:     true
+    number_sections: true
+---
+
+```{r setup, include = FALSE}
+# ---- Load packages & global options -----------------------------------
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  message    = FALSE,
+  warning    = FALSE
+)
+library(tidyverse) 
+library(here)      
+library(kableExtra)  
+library(fixest)     
+library(rdrobust) 
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(janitor)
+library(glue)
+library(purrr)
+library(broom)  
+library(readr)
+library(quantreg)
+
+panel <- read_csv(here("output", "panel_merged.csv"))
+```
+
+```{r merge_acs, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(janitor)
+library(readr)
+library(stringr)
+library(here)
+
+# 1. load your panel
+panel <- read_csv(here("output", "panel_merged.csv"))
+
+# 2. define the exact mapping: "GROUP|LABEL" → new_col_name
+metric_map <- c(
+  "HOUSING OCCUPANCY|Total housing units"    = "total_housing_units",
+  "HOUSING OCCUPANCY|Occupied housing units" = "occupied_housing_units",
+  "HOUSING OCCUPANCY|Vacant housing units"   = "vacant_housing_units",
+  "HOUSING OCCUPANCY|Homeowner vacancy rate" = "homeowner_vacancy_rate",
+  "HOUSING OCCUPANCY|Rental vacancy rate"    = "rental_vacancy_rate",
+  "UNITS IN STRUCTURE|1-unit, detached"      = "units_1_detached",
+  "UNITS IN STRUCTURE|1-unit, attached"      = "units_1_attached",
+  "UNITS IN STRUCTURE|2 units"               = "units_2",
+  "UNITS IN STRUCTURE|3 or 4 units"          = "units_3_4",
+  "UNITS IN STRUCTURE|5 to 9 units"          = "units_5_9",
+  "UNITS IN STRUCTURE|10 to 19 units"        = "units_10_19",
+  "UNITS IN STRUCTURE|20 or more units"      = "units_20_more",
+  "ROOMS|1 room"                             = "rooms_1",
+  "ROOMS|2 rooms"                            = "rooms_2",
+  "ROOMS|3 rooms"                            = "rooms_3",
+  "ROOMS|4 rooms"                            = "rooms_4",
+  "ROOMS|5 rooms"                            = "rooms_5",
+  "ROOMS|6 rooms"                            = "rooms_6",
+  "ROOMS|7 rooms"                            = "rooms_7",
+  "ROOMS|8 rooms"                            = "rooms_8",
+  "ROOMS|9 rooms or more"                    = "rooms_9_more",
+  "ROOMS|Median rooms"                       = "median_rooms",
+  "BEDROOMS|No bedroom"                      = "bedrooms_0",
+  "BEDROOMS|1 bedroom"                       = "bedrooms_1",
+  "BEDROOMS|2 bedrooms"                      = "bedrooms_2",
+  "BEDROOMS|3 bedrooms"                      = "bedrooms_3",
+  "BEDROOMS|4 bedrooms"                      = "bedrooms_4",
+  "BEDROOMS|5 or more bedrooms"              = "bedrooms_5_more",
+  "HOUSING TENURE|Owner-occupied"            = "owner_occupied_units",
+  "HOUSING TENURE|Renter-occupied"           = "renter_occupied_units",
+  "HOUSING TENURE|Average household size of owner-occupied unit"  = "avg_hh_size_owner",
+  "HOUSING TENURE|Average household size of renter-occupied unit" = "avg_hh_size_renter",
+  "VEHICLES AVAILABLE|No vehicles available"         = "veh_no",
+  "VEHICLES AVAILABLE|1 vehicle available"           = "veh_1",
+  "VEHICLES AVAILABLE|2 vehicles available"          = "veh_2",
+  "VEHICLES AVAILABLE|3 or more vehicles available"  = "veh_3_more",
+  "OCCUPANTS PER ROOM|1.00 or less"                  = "occ_per_room_1_or_less",
+  "OCCUPANTS PER ROOM|1.01 to 1.50"                  = "occ_per_room_1_01_to_1_50",
+  "OCCUPANTS PER ROOM|1.51 or more"                  = "occ_per_room_1_51_more",
+  "VALUE|Less than $50,000"        = "value_less_50000",
+  "VALUE|$50,000 to $99,999"       = "value_50000_99999",
+  "VALUE|$100,000 to $149,999"     = "value_100000_149999",
+  "VALUE|$150,000 to $199,999"     = "value_150000_199999",
+  "VALUE|$200,000 to $299,999"     = "value_200000_299999",
+  "VALUE|$300,000 to $499,999"     = "value_300000_499999",
+  "VALUE|$500,000 to $999,999"     = "value_500000_999999",
+  "VALUE|$1,000,000 or more"       = "value_1000000_more",
+  "VALUE|Median (dollars)"        = "median_value_dollars",
+  "MORTGAGE STATUS|Housing units with a mortgage"    = "housing_with_mortgage",
+  "MORTGAGE STATUS|Housing units without a mortgage" = "housing_without_mortgage",
+  "GROSS RENT|Median (dollars)"                     = "median_gross_rent_dollars"
+)
+
+# 3. list DP04 files
+acs_files <- list.files(
+  here("data", "housing_characteristics"),
+  pattern   = "^ACSDP5Y[0-9]{4}.*\\.csv$",
+  full.names= TRUE
+)
+
+# 4. read & extract
+acs_data <- map_dfr(acs_files, function(path) {
+  yr <- str_extract(basename(path), "(?<=ACSDP5Y)\\d{4}") %>% as.integer()
+  
+  read_csv(path) %>%
+    # only pivot Estimate columns
+    pivot_longer(
+      cols      = matches("!!Estimate$"),
+      names_to  = c("GEO_NAME", "measure"),
+      names_sep = "!!",
+      values_to = "raw_value"
+    ) %>%
+    filter(measure == "Estimate") %>%
+    mutate(
+      trimmed   = str_trim(`Label (Grouping)`),
+      # detect group headers: ALL CAPS, no digits
+      is_header = trimmed == toupper(trimmed) & !str_detect(trimmed, "\\d"),
+      group     = if_else(is_header, trimmed, NA_character_)
+    ) %>%
+    fill(group, .direction = "down") %>%
+    # build the lookup key and filter
+    mutate(key = paste0(group, "|", trimmed)) %>%
+    filter(key %in% names(metric_map)) %>%
+    transmute(
+      city        = str_remove(GEO_NAME, " city, Oregon$"),
+      YEAR        = yr,
+      metric_name = metric_map[key],
+      value       = parse_number(as.character(raw_value))
+    )
+}) %>%
+  pivot_wider(
+    id_cols     = c(city, YEAR),
+    names_from  = metric_name,
+    values_from = value
+  )
+
+# 5. join back onto panel
+panel <- panel %>%
+  left_join(acs_data, by = c("city","YEAR"))
+
+# 6. write out
+write_csv(panel, here("output","panel_with_exact_dp04.csv"))
+```
+# Pre-Policy Group Similarity
+To assess how similar our treatment and control cities were before each mandate, we first pulled out every numeric outcome (excluding identifiers) and reshaped the data into a long format with one row per city–year–metric.  For the small‐city cutoff (“None” vs. “Medium” up to 12 000 residents), we kept only observations in those two categories and flagged years before 2021 as “Pre (<2021).”  Within each metric and category, we then computed the mean and standard deviation of the outcome.  We did the same for the medium‐vs‐large comparison (20 000–30 000 residents), labeling years before 2022 as “Pre (<2022).”  In each case, we calculated the standardized mean difference (SMD) as
+
+$$
+\frac{\text{Mean}_{\text{treated}} - \text{Mean}_{\text{control}}}
+     {\sqrt{\tfrac{1}{2}\bigl(\text{SD}_{\text{treated}}^2 + \text{SD}_{\text{control}}^2\bigr)}},
+$$
+
+which expresses the raw mean gap in pre‐policy outcomes as a fraction of their pooled standard deviation.  Finally, we filtered to the pre‐policy period, formatted the means to two decimal places, and color‐coded each SMD—green if $|\text{SMD}|<0.10$, orange if between 0.10 and 0.20, and red otherwise—before rendering the results in concise HTML tables.
+
+```{r summary_stats, echo=FALSE, message=FALSE, warning=FALSE}
+# 0. Identify numeric outcome columns
+id_cols  <- c("YEAR","city","Population_2019",
+              "HB2001_Category","treat","post","pre")
+outcomes <- panel %>%
+  select(where(is.numeric)) %>%
+  select(-any_of(id_cols)) %>%
+  names()
+
+# 1. Pivot to long form once
+panel_long <- panel %>%
+  pivot_longer(
+    cols      = all_of(outcomes),
+    names_to  = "Metric",
+    values_to = "Value"
+  )
+
+# Helper to color only Pre‐period SMD
+color_pre_smd <- function(smd, period) {
+  if (grepl("^Pre", period)) {
+    cell_spec(
+      round(smd, 3),
+      color = ifelse(abs(smd) < 0.10, "green",
+                     ifelse(abs(smd) <= 0.20, "orange", "red"))
+    )
+  } else {
+    format(round(smd, 3), nsmall = 3)
+  }
+}
+
+# 2. None vs. Medium (pop ≤12k), compute SMD
+summary_MN_smd <- panel_long %>%
+  filter(
+    HB2001_Category == "None" |
+      (HB2001_Category == "Medium" & Population_2019 <= 12e3)
+  ) %>%
+  mutate(period = if_else(YEAR >= 2021, "Post (≥2021)", "Pre (<2021)")) %>%
+  group_by(Metric, period, HB2001_Category) %>%
+  summarise(
+    mean_val = mean(Value, na.rm = TRUE),
+    sd_val   = sd(Value,   na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = HB2001_Category,
+    values_from = c(mean_val, sd_val),
+    names_glue  = "{HB2001_Category}_{.value}"
+  ) %>%
+  mutate(
+    None    = round(None_mean_val,   2),
+    Medium  = round(Medium_mean_val, 2),
+    SMD_raw = (Medium_mean_val - None_mean_val) /
+              sqrt((Medium_sd_val^2 + None_sd_val^2) / 2),
+    SMD     = mapply(color_pre_smd, SMD_raw, period)
+  ) %>%
+  select(Metric, period, None, Medium, SMD) %>%
+  filter(grepl("^Pre", period))
+
+# 3. Medium vs. Large (20k–30k pop), compute SMD
+summary_LM_smd <- panel_long %>%
+  filter(
+    HB2001_Category %in% c("Medium","Large/Metro") &
+      between(Population_2019, 20e3, 30e3)
+  ) %>%
+  mutate(period = if_else(YEAR >= 2022, "Post (≥2022)", "Pre (<2022)")) %>%
+  group_by(Metric, period, HB2001_Category) %>%
+  summarise(
+    mean_val = mean(Value, na.rm = TRUE),
+    sd_val   = sd(Value,   na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = HB2001_Category,
+    values_from = c(mean_val, sd_val),
+    names_glue  = "{HB2001_Category}_{.value}"
+  ) %>%
+  mutate(
+    Medium  = round(Medium_mean_val,      2),
+    Large   = round(`Large/Metro_mean_val`, 2),
+    SMD_raw = (`Large/Metro_mean_val` - Medium_mean_val) /
+              sqrt((`Large/Metro_sd_val`^2 + Medium_sd_val^2) / 2),
+    SMD     = mapply(color_pre_smd, SMD_raw, period)
+  ) %>%
+  select(Metric, period, Medium, Large, SMD) %>%
+  filter(grepl("^Pre", period))
+
+# 4. Render None vs. Medium (Pre only)
+summary_MN_smd %>%
+  kable(
+    format    = "html",
+    escape    = FALSE,
+    caption   = "Table – None vs. Medium (pop ≤12k): Pre‐policy means & SMD (Pre <2021)",
+    col.names = c("Metric", "Period", "None", "Medium", "SMD")
+  ) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
+
+# 5. Render Medium vs. Large (Pre only)
+summary_LM_smd %>%
+  kable(
+    format    = "html",
+    escape    = FALSE,
+    caption   = "Table – Medium vs. Large (20k–30k): Pre‐policy means & SMD (Pre <2022)",
+    col.names = c("Metric", "Period", "Medium", "Large", "SMD")
+  ) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
+```
+
+```{r graphical_trends, echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------
+#  Policy timelines for each comparison
+# -----------------------------------------------------------------------
+policy_years_nm   <- c(2019, 2021)
+policy_caption_nm <- "Dashed lines: 2019 (HB 2001 passed), 2021 (duplex mandate in medium cities)"
+
+policy_years_ml   <- c(2019, 2022)
+policy_caption_ml <- "Dashed lines: 2019 (HB 2001 passed), 2022 (middle-housing mandate in large cities)"
+
+# -----------------------------------------------------------------------
+#  Prepare output directory
+# -----------------------------------------------------------------------
+dir.create(here("outputs", "plots"), recursive = TRUE, showWarnings = FALSE)
+
+# -----------------------------------------------------------------------
+#  Helper to prettify metric names
+# -----------------------------------------------------------------------
+pretty_lab <- function(x) gsub("_", " ", tools::toTitleCase(x))
+
+# -----------------------------------------------------------------------
+#  For each metric, build and save two trend plots:
+#    • None vs Medium (pop ≤12k), cutoffs at 2019 & 2021
+#    • Medium vs Large (20–30k), cutoffs at 2019 & 2022
+# -----------------------------------------------------------------------
+walk(outcomes, function(var) {
+
+  # --- none vs medium ---
+  df_nm <- panel %>%
+    filter(
+      HB2001_Category == "None" |
+      (HB2001_Category == "Medium" & Population_2019 <= 12e3)
+    ) %>%
+    group_by(YEAR, HB2001_Category) %>%
+    summarise(mean_val = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+    mutate(Category = factor(HB2001_Category, levels = c("None", "Medium")))
+
+  p_nm <- ggplot(df_nm, aes(x = YEAR, y = mean_val, colour = Category)) +
+    geom_line(size = 1.1) +
+    geom_vline(xintercept = policy_years_nm, linetype = "dashed") +
+    labs(
+      title    = glue("{pretty_lab(var)} — Medium vs None"),
+      subtitle = policy_caption_nm,
+      x        = "Year",
+      y        = pretty_lab(var),
+      colour   = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+
+  ggsave(
+    filename = here("outputs", "plots", glue("{var}_none_medium.png")),
+    plot     = p_nm,
+    width    = 16, height = 9, units = "cm", dpi = 300
+  )
+
+  # --- medium vs large ---
+  df_ml <- panel %>%
+    filter(
+      (HB2001_Category == "Medium" & between(Population_2019, 20e3, 30e3)) |
+      (HB2001_Category == "Large/Metro" & between(Population_2019, 20e3, 30e3))
+    ) %>%
+    group_by(YEAR, HB2001_Category) %>%
+    summarise(mean_val = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+    mutate(Category = factor(HB2001_Category, levels = c("Medium", "Large/Metro")))
+
+  p_ml <- ggplot(df_ml, aes(x = YEAR, y = mean_val, colour = Category)) +
+    geom_line(size = 1.1) +
+    geom_vline(xintercept = policy_years_ml, linetype = "dashed") +
+    labs(
+      title    = glue("{pretty_lab(var)} — Medium vs Large/Metro"),
+      subtitle = policy_caption_ml,
+      x        = "Year",
+      y        = pretty_lab(var),
+      colour   = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+
+  ggsave(
+    filename = here("outputs", "plots", glue("{var}_medium_large.png")),
+    plot     = p_ml,
+    width    = 16, height = 9, units = "cm", dpi = 300
+  )
+})
+```
+# Difference-in-Differences (DiD) using Mean
+We estimate how HB 2001 shifted each per‐capita outcome $Y_{it}$ by comparing cities just above and below two population thresholds, before (2017–19) and after (2020–23) each mandate.  In practice, for each cutoff we fit the following fixed‐effects regression:
+
+$$
+Y_{it} \;=\; \alpha 
+\;+\;\beta\,(Treat_i \times Post_t)
+\;+\;\phi\,\log(\mathrm{Population2019}_i)
+\;+\;\gamma_i
+\;+\;\delta_t
+\;+\;\varepsilon_{it},
+$$
+
+where $Treat_i$ equals 1 for “Medium” versus “None” cities at the 10 k cutoff (or “Large/Metro” versus “Medium” at the 25 k cutoff), $Post_t$ equals 1 in 2020–23 (0 otherwise), and $\log(\mathrm{Population2019}_i)$ absorbs any remaining size or growth trends.  City fixed effects $\gamma_i$ account for all time‐invariant characteristics, year fixed effects $\delta_t$ capture common annual shocks, and errors are clustered by city.  The coefficient $\beta$ on the interaction $Treat_i \times Post_t$ therefore represents the causal “difference-in-differences” impact of each phase of HB 2001 on our outcomes of interest.
+
+We normalize all of our “agg\_” outcomes on a per‐capita basis because raw totals would mechanically rise in larger cities even in the absence of any policy effect; dividing by the 2019 population ensures that we are comparing apples to apples across places of very different size.  Even after that normalization, we include $\log(\mathrm{Population2019}_i)$ as a right‐hand‐side regressor to soak up any remaining non‐linear size or growth dynamics—cities that grow faster or start from a larger base may experience different time trends in outcomes like income or housing supply, and the log transformation is flexible enough to capture diminishing returns to scale.  City fixed effects ($\gamma_i$) absorb every time‐invariant characteristic of each municipality—its geography, underlying zoning regime prior to HB 2001, historic demographic mix, or any other constant factor that could otherwise confound our estimates.  Year fixed effects ($\delta_t$) capture statewide shocks or business‐cycle swings that hit all Oregon cities in a given calendar year, such as a recession or a sudden statewide surge in construction activity.  Finally, clustering our standard errors by city allows for arbitrary serial correlation within each locality over time—so that cities with persistently high or low shocks don’t spuriously drive the inference.  Together, these controls and transformations ensure that our DiD coefficient $\beta$ truly isolates the incremental impact of each population‐based mandate, rather than reflecting city size, growth trajectories, unobserved fixed traits, common shocks, or serially correlated noise.
+```{r diff_in_diff, echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------
+# 0.  Create per-capita versions of all agg_* variables
+# -----------------------------------------------------------------------
+panel <- panel %>%
+  mutate(across(starts_with("agg_"),
+                ~ .x / Population_2019,
+                .names = "{.col}_pc"))
+
+# Identify original aggregate names
+agg_raw <- grep("^agg_", names(panel), value = TRUE)
+
+# -----------------------------------------------------------------------
+# 1.  Outcome list = everything EXCEPT raw aggregates & identifiers
+# -----------------------------------------------------------------------
+id_cols  <- c("YEAR", "city", "Population_2019",
+              "HB2001_Category", "treat", "post", "pre")
+
+did_vars <- setdiff(names(panel), c(id_cols, agg_raw))   # keeps *_pc, mean, median
+
+# -----------------------------------------------------------------------
+# 2.  Recode treatment indicators for the two cut-offs
+# -----------------------------------------------------------------------
+panel <- panel %>%
+  mutate(
+    treat_10k = if_else(HB2001_Category == "Medium",      1,
+                        if_else(HB2001_Category == "None", 0, NA_real_)),
+    treat_25k = if_else(HB2001_Category == "Large/Metro", 1,
+                        if_else(HB2001_Category == "Medium", 0, NA_real_))
+  )
+
+# -----------------------------------------------------------------------
+# 3.  Helper that runs one DiD (adds log-pop control)
+# -----------------------------------------------------------------------
+run_did <- function(treat_var, label) {
+  map_dfr(did_vars, function(v) {
+    mod <- feols(
+      as.formula(glue("{v} ~ {treat_var} * post + log(Population_2019) | city + YEAR")),
+      data    = panel,
+      cluster = ~city
+    )
+    broom::tidy(mod) %>%
+      filter(term == glue("{treat_var}:post")) %>%
+      transmute(
+        Metric   = v,
+        Estimate = round(estimate, 3),
+        SE       = round(std.error, 3),
+        p_value  = round(p.value, 3),
+        Window   = label
+      )
+  })
+}
+
+# -----------------------------------------------------------------------
+# 4.  Run DiD for both thresholds
+# -----------------------------------------------------------------------
+did_10k <- run_did("treat_10k", "10 k (None vs Medium)")
+did_25k <- run_did("treat_25k", "25 k (Medium vs Large)")
+
+did_results <- bind_rows(did_10k, did_25k)
+
+# -----------------------------------------------------------------------
+# 5.  Keep statistically significant rows
+# -----------------------------------------------------------------------
+did_sig <- filter(did_results, p_value < 0.05)
+
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(did_sig, here("outputs", "did_mean_pc_popctrl_significant.csv"))
+
+# -----------------------------------------------------------------------
+# 6.  Display significant subset (or a note if none)
+# -----------------------------------------------------------------------
+if (nrow(did_sig) > 0) {
+  did_sig %>%
+    arrange(Window, p_value) %>%
+    kable(format = "html",
+          caption = "Mean DiD with per-capita aggregates & population control (p < 0.05)",
+          col.names = c("Metric", "β̂", "SE", "p", "Window")) %>%
+    kable_styling(full_width = FALSE,
+                  bootstrap_options = c("condensed", "striped", "hover"))
+} else {
+  cat("**No metrics are significant at p < 0.05 after per-capita conversion and population control.**")
+}
+```
+
+
+# Robustness & Parallel-Trends Checks (DiD)
+To probe whether our DiD estimates might simply be picking up spurious shifts rather than true policy effects, we construct a “placebo” test by pretending the law went into effect in 2018—before either the 10 k or 25 k mandates actually rolled out. Specifically, we add a `post_placebo` flag that equals 1 for years ≥ 2018 and 0 otherwise, and then rerun the exact same fixed‐effects regressions (with `log(Population_2019)` and city and year fixed effects, clustering by city) using `treat_10k` and `treat_25k` interacted with this fake post indicator. We bind together all of these placebo estimates, save them to CSV, and then filter for any “false positives” (coefficients on the placebo interaction with p < 0.05). If the parallel-trends assumption holds, we should see no significant treatment “effects” in this earlier period; finding none lends credibility to our main DiD results, whereas any significant placebo hits would warn us that underlying trends or noise might be driving our estimates.
+```{r robustness, echo=FALSE, message=FALSE, warning=FALSE}
+# 1. Create the placebo post indicator at 2018
+panel_placebo <- panel %>%
+  mutate(post_placebo = if_else(YEAR >= 2018, 1, 0))
+
+# 2. Helper to run a placebo DiD for any treat var
+placebo_run_did <- function(treat_var, label) {
+  map_dfr(did_vars, function(v) {
+    mod <- feols(
+      as.formula(glue("{v} ~ {treat_var} * post_placebo + log(Population_2019) | city + YEAR")),
+      data    = panel_placebo,
+      cluster = ~city
+    )
+    broom::tidy(mod) %>%
+      # pick off the placebo interaction
+      filter(term == glue("{treat_var}:post_placebo")) %>%
+      transmute(
+        Metric   = v,
+        Estimate = round(estimate, 3),
+        SE       = round(std.error, 3),
+        p_value  = round(p.value, 3),
+        Window   = label
+      )
+  })
+}
+
+# 3. Run it for both the 10k and 25k thresholds
+placebo_10k <- placebo_run_did("treat_10k", "10 k (Placebo 2018)")
+placebo_25k <- placebo_run_did("treat_25k", "25 k (Placebo 2018)")
+placebo_results <- bind_rows(placebo_10k, placebo_25k)
+
+# 4. Save all placebo estimates
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(placebo_results, here("outputs", "did_placebo_2018.csv"))
+
+# 5. Report only “false positives” (p < 0.05)
+placebo_sig <- placebo_results %>% filter(p_value < 0.05)
+
+if (nrow(placebo_sig) > 0) {
+  placebo_sig %>%
+    arrange(Window, p_value) %>%
+    kable(
+      format    = "html",
+      caption   = "Placebo DiD (fake policy year = 2018) — metrics with p < 0.05",
+      col.names = c("Metric", "β̂", "SE", "p", "Window")
+    ) %>%
+    kable_styling(
+      full_width        = FALSE,
+      bootstrap_options = c("condensed", "striped", "hover")
+    )
+} else {
+  cat("**No metrics are significant at p < 0.05 in the placebo DiD.**")
+}
+```
