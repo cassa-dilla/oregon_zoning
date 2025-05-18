@@ -1,6 +1,6 @@
 ---
-title:  "HB 2001 City-Level Analysis"
-author: "Your Name"
+title:  "HB 2001 City-Level DiD Analysis"
+author: "Cassidy Dalva and Thao Phan"
 date:   "`r Sys.Date()`"
 output:
   html_document:
@@ -12,309 +12,386 @@ output:
 ```{r setup, include = FALSE}
 # ---- Load packages & global options -----------------------------------
 knitr::opts_chunk$set(
-  echo       = TRUE,   # show code for full transparency
-  message    = FALSE,  # suppress library startup messagenames(panel_merged)s
+  echo       = TRUE,
+  message    = FALSE,
   warning    = FALSE
 )
-
-library(tidyverse)   # dplyr, ggplot2, readr, tidyr...
-library(here)        # robust, portable file paths
-library(kableExtra)  # pretty HTML tables
-library(fixest)      # fast fixed-effects regressions (DiD)
-library(rdrobust)    # simple RD estimates
-```
-# Data Import
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-panel <- read_csv(here("output", "panel_merged.csv"))
-
-# Quick peek to confirm structure
-dplyr::glimpse(panel)
-```
-# Summary Statistics
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- summary-stats, message = FALSE, warning = FALSE -------------------
+library(tidyverse) 
+library(here)      
+library(kableExtra)  
+library(fixest)     
+library(rdrobust) 
 library(dplyr)
 library(tidyr)
-library(kableExtra)
-library(here)
-
-# -----------------------------------------------------------------------
-# 1.  Identify ALL numeric outcome columns automatically
-# -----------------------------------------------------------------------
-id_cols <- c("YEAR", "city", "Population_2019", "treat", "post", "pre")
-outcomes <- panel %>% 
-  select(where(is.numeric)) %>%     # keep only numeric columns
-  select(-any_of(id_cols)) %>%      # any_of() silently ignores missing names
-  names()
-
-# -----------------------------------------------------------------------
-# 2.  Compute mean and SD by Treatment × Period
-# -----------------------------------------------------------------------
-summary_tbl <- panel %>% 
-  mutate(period    = if_else(post == 1, "Post (2020-23)", "Pre (2017-19)"),
-         Treatment = if_else(treat == 1, "Treated",      "Control")) %>% 
-  group_by(Treatment, period) %>% 
-  summarise(
-    across(all_of(outcomes),
-           list(mean = ~ mean(.x, na.rm = TRUE),
-                sd   = ~ sd(.x,   na.rm = TRUE)),
-           .names = "{col}_{fn}"),
-    .groups = "drop"
-  )
-
-# -----------------------------------------------------------------------
-# 3.  Write the FULL table to disk for deep dives
-# -----------------------------------------------------------------------
-dir.create(here("outputs"), showWarnings = FALSE)
-write_csv(summary_tbl, here("outputs", "summary_stats.csv"))
-
-# -----------------------------------------------------------------------
-# 4.  Show a *preview* (first 25 metrics) in the knitted report
-# -----------------------------------------------------------------------
-summary_tbl %>% 
-  select(Treatment, period, 1:51) %>%      # 2 ID cols + 25 metrics × 2 stats
-  kable(format = "html",
-        caption = "Table 1 – Summary statistics by period and treatment group (first 25 metrics)") %>% 
-  kable_styling(full_width = FALSE,
-                bootstrap_options = c("condensed", "striped", "hover")) %>% 
-  scroll_box(width = "100%", height = "400px")  # keeps the page compact
-```
-# Graphical Trends
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- graphical-trends, echo = FALSE, message = FALSE, warning = FALSE ----
 library(ggplot2)
 library(glue)
 library(purrr)
-library(here)
+library(broom)  
+library(readr)
+library(quantreg)
 
-# -----------------------------------------------------------------------
-# 0.  Policy timeline (single source of truth)
-# -----------------------------------------------------------------------
-policy_years   <- c(2019, 2021, 2022)
-policy_caption <- "Dashed lines: 2019 (HB 2001 passed), 2021 (duplex mandate), 2022 (middle-housing mandate)"
+panel <- read_csv(here("output", "panel_merged.csv"))
+```
 
-# -----------------------------------------------------------------------
-# 1.  Yearly means by Treat / Control  (same as before)
-# -----------------------------------------------------------------------
-plot_dat <- panel %>%
-  group_by(YEAR, treat) %>%
-  summarise(across(all_of(outcomes), ~ mean(.x, na.rm = TRUE)),
-            .groups = "drop") %>%
-  mutate(Treatment = if_else(treat == 1, "Treated", "Control"))
+# Pre-Policy Group Similarity
+To assess how similar our treatment and control cities were before each mandate, we first pulled out every numeric outcome (excluding identifiers) and reshaped the data into a long format with one row per city–year–metric.  For the small‐city cutoff (“None” vs. “Medium” up to 12 000 residents), we kept only observations in those two categories and flagged years before 2021 as “Pre (<2021).”  Within each metric and category, we then computed the mean and standard deviation of the outcome.  We did the same for the medium‐vs‐large comparison (20 000–30 000 residents), labeling years before 2022 as “Pre (<2022).”  In each case, we calculated the standardized mean difference (SMD) as
 
-pretty_lab <- function(x) gsub("_", " ", tools::toTitleCase(x))
+$$
+\frac{\text{Mean}_{\text{treated}} - \text{Mean}_{\text{control}}}
+     {\sqrt{\tfrac{1}{2}\bigl(\text{SD}_{\text{treated}}^2 + \text{SD}_{\text{control}}^2\bigr)}},
+$$
 
-# -----------------------------------------------------------------------
-# 2.  Plot builder with *three* dashed lines
-# -----------------------------------------------------------------------
-make_line <- function(var) {
-  ggplot(plot_dat,
-         aes(x = YEAR, y = .data[[var]], color = Treatment)) +
-    geom_line(size = 1.1, na.rm = TRUE) +
-    geom_vline(xintercept = policy_years, linetype = "dashed") +      # ★ NEW ★
-    labs(title    = glue("{pretty_lab(var)} — Treated vs Control"),
-         x        = "Year",
-         y        = pretty_lab(var),
-         color    = NULL,
-         subtitle = policy_caption) +
-    theme_minimal(base_size = 12) +
-    theme(legend.position = "bottom")
+which expresses the raw mean gap in pre‐policy outcomes as a fraction of their pooled standard deviation.  Finally, we filtered to the pre‐policy period, formatted the means to two decimal places, and color‐coded each SMD—green if $|\text{SMD}|<0.10$, orange if between 0.10 and 0.20, and red otherwise—before rendering the results in concise HTML tables.
+
+```{r summary_stats, echo=FALSE, message=FALSE, warning=FALSE}
+# 0. Identify numeric outcome columns
+id_cols  <- c("YEAR","city","Population_2019",
+              "HB2001_Category","treat","post","pre")
+outcomes <- panel %>%
+  select(where(is.numeric)) %>%
+  select(-any_of(id_cols)) %>%
+  names()
+
+# 1. Pivot to long form once
+panel_long <- panel %>%
+  pivot_longer(
+    cols      = all_of(outcomes),
+    names_to  = "Metric",
+    values_to = "Value"
+  )
+
+# Helper to color only Pre‐period SMD
+color_pre_smd <- function(smd, period) {
+  if (grepl("^Pre", period)) {
+    cell_spec(
+      round(smd, 3),
+      color = ifelse(abs(smd) < 0.10, "green",
+                     ifelse(abs(smd) <= 0.20, "orange", "red"))
+    )
+  } else {
+    format(round(smd, 3), nsmall = 3)
+  }
 }
 
+# 2. None vs. Medium (pop ≤12k), compute SMD
+summary_MN_smd <- panel_long %>%
+  filter(
+    HB2001_Category == "None" |
+      (HB2001_Category == "Medium" & Population_2019 <= 12e3)
+  ) %>%
+  mutate(period = if_else(YEAR >= 2021, "Post (≥2021)", "Pre (<2021)")) %>%
+  group_by(Metric, period, HB2001_Category) %>%
+  summarise(
+    mean_val = mean(Value, na.rm = TRUE),
+    sd_val   = sd(Value,   na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = HB2001_Category,
+    values_from = c(mean_val, sd_val),
+    names_glue  = "{HB2001_Category}_{.value}"
+  ) %>%
+  mutate(
+    None    = round(None_mean_val,   2),
+    Medium  = round(Medium_mean_val, 2),
+    SMD_raw = (Medium_mean_val - None_mean_val) /
+              sqrt((Medium_sd_val^2 + None_sd_val^2) / 2),
+    SMD     = mapply(color_pre_smd, SMD_raw, period)
+  ) %>%
+  select(Metric, period, None, Medium, SMD) %>%
+  filter(grepl("^Pre", period))
+
+# 3. Medium vs. Large (20k–30k pop), compute SMD
+summary_LM_smd <- panel_long %>%
+  filter(
+    HB2001_Category %in% c("Medium","Large/Metro") &
+      between(Population_2019, 20e3, 30e3)
+  ) %>%
+  mutate(period = if_else(YEAR >= 2022, "Post (≥2022)", "Pre (<2022)")) %>%
+  group_by(Metric, period, HB2001_Category) %>%
+  summarise(
+    mean_val = mean(Value, na.rm = TRUE),
+    sd_val   = sd(Value,   na.rm = TRUE),
+    .groups  = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = HB2001_Category,
+    values_from = c(mean_val, sd_val),
+    names_glue  = "{HB2001_Category}_{.value}"
+  ) %>%
+  mutate(
+    Medium  = round(Medium_mean_val,      2),
+    Large   = round(`Large/Metro_mean_val`, 2),
+    SMD_raw = (`Large/Metro_mean_val` - Medium_mean_val) /
+              sqrt((`Large/Metro_sd_val`^2 + Medium_sd_val^2) / 2),
+    SMD     = mapply(color_pre_smd, SMD_raw, period)
+  ) %>%
+  select(Metric, period, Medium, Large, SMD) %>%
+  filter(grepl("^Pre", period))
+
+# 4. Render None vs. Medium (Pre only)
+summary_MN_smd %>%
+  kable(
+    format    = "html",
+    escape    = FALSE,
+    caption   = "Table – None vs. Medium (pop ≤12k): Pre‐policy means & SMD (Pre <2021)",
+    col.names = c("Metric", "Period", "None", "Medium", "SMD")
+  ) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
+
+# 5. Render Medium vs. Large (Pre only)
+summary_LM_smd %>%
+  kable(
+    format    = "html",
+    escape    = FALSE,
+    caption   = "Table – Medium vs. Large (20k–30k): Pre‐policy means & SMD (Pre <2022)",
+    col.names = c("Metric", "Period", "Medium", "Large", "SMD")
+  ) %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "condensed"))
+```
+
+```{r graphical_trends, echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------
-# 3.  (Same walk loop & optional ggsave as before)
+#  Policy timelines for each comparison
+# -----------------------------------------------------------------------
+policy_years_nm   <- c(2019, 2021)
+policy_caption_nm <- "Dashed lines: 2019 (HB 2001 passed), 2021 (duplex mandate in medium cities)"
+
+policy_years_ml   <- c(2019, 2022)
+policy_caption_ml <- "Dashed lines: 2019 (HB 2001 passed), 2022 (middle-housing mandate in large cities)"
+
+# -----------------------------------------------------------------------
+#  Prepare output directory
 # -----------------------------------------------------------------------
 dir.create(here("outputs", "plots"), recursive = TRUE, showWarnings = FALSE)
 
-walk(outcomes, function(v) {
-  p <- make_line(v)
-  print(p)
-  ggsave(here("outputs", "plots", glue("{v}_trend.png")),
-         plot = p, width = 16, height = 9, units = "cm", dpi = 300)
+# -----------------------------------------------------------------------
+#  Helper to prettify metric names
+# -----------------------------------------------------------------------
+pretty_lab <- function(x) gsub("_", " ", tools::toTitleCase(x))
+
+# -----------------------------------------------------------------------
+#  For each metric, build and save two trend plots:
+#    • None vs Medium (pop ≤12k), cutoffs at 2019 & 2021
+#    • Medium vs Large (20–30k), cutoffs at 2019 & 2022
+# -----------------------------------------------------------------------
+walk(outcomes, function(var) {
+
+  # --- none vs medium ---
+  df_nm <- panel %>%
+    filter(
+      HB2001_Category == "None" |
+      (HB2001_Category == "Medium" & Population_2019 <= 12e3)
+    ) %>%
+    group_by(YEAR, HB2001_Category) %>%
+    summarise(mean_val = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+    mutate(Category = factor(HB2001_Category, levels = c("None", "Medium")))
+
+  p_nm <- ggplot(df_nm, aes(x = YEAR, y = mean_val, colour = Category)) +
+    geom_line(size = 1.1) +
+    geom_vline(xintercept = policy_years_nm, linetype = "dashed") +
+    labs(
+      title    = glue("{pretty_lab(var)} — Medium vs None"),
+      subtitle = policy_caption_nm,
+      x        = "Year",
+      y        = pretty_lab(var),
+      colour   = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+
+  ggsave(
+    filename = here("outputs", "plots", glue("{var}_none_medium.png")),
+    plot     = p_nm,
+    width    = 16, height = 9, units = "cm", dpi = 300
+  )
+
+  # --- medium vs large ---
+  df_ml <- panel %>%
+    filter(
+      (HB2001_Category == "Medium" & between(Population_2019, 20e3, 30e3)) |
+      (HB2001_Category == "Large/Metro" & between(Population_2019, 20e3, 30e3))
+    ) %>%
+    group_by(YEAR, HB2001_Category) %>%
+    summarise(mean_val = mean(.data[[var]], na.rm = TRUE), .groups = "drop") %>%
+    mutate(Category = factor(HB2001_Category, levels = c("Medium", "Large/Metro")))
+
+  p_ml <- ggplot(df_ml, aes(x = YEAR, y = mean_val, colour = Category)) +
+    geom_line(size = 1.1) +
+    geom_vline(xintercept = policy_years_ml, linetype = "dashed") +
+    labs(
+      title    = glue("{pretty_lab(var)} — Medium vs Large/Metro"),
+      subtitle = policy_caption_ml,
+      x        = "Year",
+      y        = pretty_lab(var),
+      colour   = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+
+  ggsave(
+    filename = here("outputs", "plots", glue("{var}_medium_large.png")),
+    plot     = p_ml,
+    width    = 16, height = 9, units = "cm", dpi = 300
+  )
 })
 ```
-# Difference-in-Differences (DiD)
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- did, message = FALSE, warning = FALSE ---------------------------------
-# -------------------------------------------------------------------------
-#  Difference-in-Differences for *every* metric in the dataset
-# -------------------------------------------------------------------------
-library(fixest)   # fast high-dim FE regressions
-library(broom)    # tidy() to extract coefficients
-library(glue)     # safe string interpolation
+# Difference-in-Differences (DiD) using Mean
+We estimate how HB 2001 shifted each per‐capita outcome $Y_{it}$ by comparing cities just above and below two population thresholds, before (2017–19) and after (2020–23) each mandate.  In practice, for each cutoff we fit the following fixed‐effects regression:
 
-# 1.  Identify outcome variables (drop identifiers & flags)
-did_vars <- setdiff(
-  names(panel),
-  c("YEAR", "city", "Population_2019",
-    "HB2001_Category", "treat", "post", "pre")
-)
+$$
+Y_{it} \;=\; \alpha 
+\;+\;\beta\,(Treat_i \times Post_t)
+\;+\;\phi\,\log(\mathrm{Population2019}_i)
+\;+\;\gamma_i
+\;+\;\delta_t
+\;+\;\varepsilon_{it},
+$$
 
-# 2.  Run TWFE DiD for each variable and store tidy output
-did_results <- map_dfr(
-  did_vars,
-  function(v) {
-    # build formula dynamically:  Y ~ treat*post | city + YEAR
-    form <- as.formula(glue("{v} ~ treat * post | city + YEAR"))
-    
-    mod  <- feols(form, data = panel, cluster = ~city)
-    
-    broom::tidy(mod) %>%                 # convert to data-frame
-      filter(term == "treat:post") %>%   # β̂
+where $Treat_i$ equals 1 for “Medium” versus “None” cities at the 10 k cutoff (or “Large/Metro” versus “Medium” at the 25 k cutoff), $Post_t$ equals 1 in 2020–23 (0 otherwise), and $\log(\mathrm{Population2019}_i)$ absorbs any remaining size or growth trends.  City fixed effects $\gamma_i$ account for all time‐invariant characteristics, year fixed effects $\delta_t$ capture common annual shocks, and errors are clustered by city.  The coefficient $\beta$ on the interaction $Treat_i \times Post_t$ therefore represents the causal “difference-in-differences” impact of each phase of HB 2001 on our outcomes of interest.
+
+We normalize all of our “agg\_” outcomes on a per‐capita basis because raw totals would mechanically rise in larger cities even in the absence of any policy effect; dividing by the 2019 population ensures that we are comparing apples to apples across places of very different size.  Even after that normalization, we include $\log(\mathrm{Population2019}_i)$ as a right‐hand‐side regressor to soak up any remaining non‐linear size or growth dynamics—cities that grow faster or start from a larger base may experience different time trends in outcomes like income or housing supply, and the log transformation is flexible enough to capture diminishing returns to scale.  City fixed effects ($\gamma_i$) absorb every time‐invariant characteristic of each municipality—its geography, underlying zoning regime prior to HB 2001, historic demographic mix, or any other constant factor that could otherwise confound our estimates.  Year fixed effects ($\delta_t$) capture statewide shocks or business‐cycle swings that hit all Oregon cities in a given calendar year, such as a recession or a sudden statewide surge in construction activity.  Finally, clustering our standard errors by city allows for arbitrary serial correlation within each locality over time—so that cities with persistently high or low shocks don’t spuriously drive the inference.  Together, these controls and transformations ensure that our DiD coefficient $\beta$ truly isolates the incremental impact of each population‐based mandate, rather than reflecting city size, growth trajectories, unobserved fixed traits, common shocks, or serially correlated noise.
+```{r diff_in_diff, echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------
+# 0.  Create per-capita versions of all agg_* variables
+# -----------------------------------------------------------------------
+panel <- panel %>%
+  mutate(across(starts_with("agg_"),
+                ~ .x / Population_2019,
+                .names = "{.col}_pc"))
+
+# Identify original aggregate names
+agg_raw <- grep("^agg_", names(panel), value = TRUE)
+
+# -----------------------------------------------------------------------
+# 1.  Outcome list = everything EXCEPT raw aggregates & identifiers
+# -----------------------------------------------------------------------
+id_cols  <- c("YEAR", "city", "Population_2019",
+              "HB2001_Category", "treat", "post", "pre")
+
+did_vars <- setdiff(names(panel), c(id_cols, agg_raw))   # keeps *_pc, mean, median
+
+# -----------------------------------------------------------------------
+# 2.  Recode treatment indicators for the two cut-offs
+# -----------------------------------------------------------------------
+panel <- panel %>%
+  mutate(
+    treat_10k = if_else(HB2001_Category == "Medium",      1,
+                        if_else(HB2001_Category == "None", 0, NA_real_)),
+    treat_25k = if_else(HB2001_Category == "Large/Metro", 1,
+                        if_else(HB2001_Category == "Medium", 0, NA_real_))
+  )
+
+# -----------------------------------------------------------------------
+# 3.  Helper that runs one DiD (adds log-pop control)
+# -----------------------------------------------------------------------
+run_did <- function(treat_var, label) {
+  map_dfr(did_vars, function(v) {
+    mod <- feols(
+      as.formula(glue("{v} ~ {treat_var} * post + log(Population_2019) | city + YEAR")),
+      data    = panel,
+      cluster = ~city
+    )
+    broom::tidy(mod) %>%
+      filter(term == glue("{treat_var}:post")) %>%
       transmute(
-        Variable   = v,
-        Estimate   = round(estimate, 3),
-        `Std.Err.` = round(std.error, 3),
-        `p-value`  = round(p.value, 3)
+        Metric   = v,
+        Estimate = round(estimate, 3),
+        SE       = round(std.error, 3),
+        p_value  = round(p.value, 3),
+        Window   = label
       )
-  }
-)
+  })
+}
 
-# 3.  Display a concise results table
-did_results %>%
-  arrange(`p-value`) %>%    # quote the column that has a dash
-  kable(format = "html",
-        caption = "Table DiD_All – Difference-in-Differences estimates for every metric (β̂)",
-        col.names = c("Metric", "β̂", "SE", "p")) %>% 
-  kable_styling(full_width = FALSE,
-                bootstrap_options = c("condensed", "striped", "hover"))
-```
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- did-save-significant, message = FALSE, warning = FALSE ------------
-library(readr)   # write_csv
-library(here)    # safe file paths
-
-# 1. Keep statistically-significant estimates
-did_sig <- did_results %>% 
-  filter(`p-value` < 0.05)
-
-# 2. Make sure an outputs folder exists
-dir.create(here("outputs"), showWarnings = FALSE)
-
-# 3. Save to CSV
-write_csv(did_sig, here("outputs", "did_significant.csv"))
-
-# 4. (Optional) display in the report
-did_sig %>% 
-  kable(format = "html",
-        caption = "Table DiD_Sig – Metrics with statistically significant DiD estimate (p < 0.05)",
-        col.names = c("Metric", "β̂", "SE", "p")) %>% 
-  kable_styling(full_width = FALSE,
-                bootstrap_options = c("condensed", "striped", "hover"))
-```
-# Regression Discontinuity Design (10k Cutoff)
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- rdd, message = FALSE, warning = FALSE ---------------------------------
-library(rdrobust)
-library(purrr)
-library(here)
-library(readr)
-
-# 1.  Keep cities near the cutoff (±2 000) and 2023 snapshot
-rdd_dat <- panel %>%
-  filter(Population_2019 >= 8e3, Population_2019 <= 12e3) %>%
-  filter(YEAR == 2023) %>%
-  mutate(running = Population_2019 - 10000)
-
-# 2.  Outcome variables = same set used in DiD
-rdd_vars <- did_vars
-
-# 3.  Run rdrobust for every metric
-rdd_results <- map_dfr(
-  rdd_vars,
-  function(v) {
-    out <- tryCatch(
-      rdrobust(y = rdd_dat[[v]], x = rdd_dat$running, c = 0),
-      error = function(e) NULL
-    )
-    if (is.null(out)) return(NULL)
-
-    tibble(
-      Metric    = v,
-      Estimate  = round(out$coef[1], 3),
-      Std_Err   = round(out$se[1],   3),
-      p_value   = round(out$pv[1],   3)
-    )
-  }
-)
-
-# 4.  Save the complete results table
-dir.create(here("outputs"), showWarnings = FALSE)
-write_csv(rdd_results, here("outputs", "rdd_all.csv"))
-
-# 5.  Keep statistically-significant estimates and save them, too
-rdd_sig <- rdd_results
-write_csv(rdd_sig, here("outputs", "rdd_significant.csv"))
-
-# 6.  Show the significant subset in the report
-rdd_sig %>%
-  arrange(p_value) %>%
-  kable(format = "html",
-        caption = "Table RDD_Sig – Metrics with statistically significant RD estimate (p < 0.05)",
-        col.names = c("Metric", "τ̂", "SE", "p")) %>%
-  kable_styling(full_width = FALSE,
-                bootstrap_options = c("condensed", "striped", "hover"))
-```
-# Regression Discontinuity Design (10k Cutoff)
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
-## ---- rdd_25k, message = FALSE, warning = FALSE ------------------------------
-library(rdrobust)
-library(purrr)
-library(here)
-library(readr)
-
-# 1.  Keep cities within ±5 000 of the 25 k threshold and YEAR == 2023
-rdd25_dat <- panel %>%
-  filter(Population_2019 >= 20e3, Population_2019 <= 30e3) %>%
-  filter(YEAR == 2023) %>%
-  mutate(running_25 = Population_2019 - 25000)
-
-# 2.  Outcome variables = same set used in DiD
-rdd_vars <- did_vars   # already built earlier
-
-# 3.  Run rdrobust for every metric at the 25 k cutoff
-rdd25_results <- map_dfr(
-  rdd_vars,
-  function(v) {
-    out <- tryCatch(
-      rdrobust(y = rdd25_dat[[v]], x = rdd25_dat$running_25, c = 0),
-      error = function(e) NULL
-    )
-    if (is.null(out)) return(NULL)
-
-    tibble(
-      Metric    = v,
-      Estimate  = round(out$coef[1], 3),
-      Std_Err   = round(out$se[1],   3),
-      p_value   = round(out$pv[1],   3)
-    )
-  }
-)
-
-# 4.  Save the full and significant tables
-dir.create(here("outputs"), showWarnings = FALSE)
-write_csv(rdd25_results, here("outputs", "rdd25_all.csv"))
-
-rdd25_sig <- rdd25_results #%>% filter(p_value < 0.05)
-write_csv(rdd25_sig, here("outputs", "rdd25_significant.csv"))
-
-# 5.  Show the significant subset in the report
-rdd25_sig %>%
-  arrange(p_value) %>%
-  kable(format = "html",
-        caption = "Table RDD25_Sig – Metrics with statistically significant RD estimate at 25 k cutoff (p < 0.05)",
-        col.names = c("Metric", "τ̂", "SE", "p")) %>%
-  kable_styling(full_width = FALSE,
-                bootstrap_options = c("condensed", "striped", "hover"))
-```
-# Robustness & Parallel-Trends Checks
-```{r all-in-one, echo=FALSE, message=FALSE, warning=FALSE}
 # -----------------------------------------------------------------------
-# Example placebo DiD: pretend policy started in 2018
+# 4.  Run DiD for both thresholds
 # -----------------------------------------------------------------------
-panel %>%
-  mutate(post_placebo = if_else(year >= 2018, 1, 0)) %>%
-  feols(median_rent ~ treat * post_placebo | city + year,
-        cluster = ~city) %>%
-  summary()
+did_10k <- run_did("treat_10k", "10 k (None vs Medium)")
+did_25k <- run_did("treat_25k", "25 k (Medium vs Large)")
+
+did_results <- bind_rows(did_10k, did_25k)
+
+# -----------------------------------------------------------------------
+# 5.  Keep statistically significant rows
+# -----------------------------------------------------------------------
+did_sig <- filter(did_results, p_value < 0.05)
+
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(did_sig, here("outputs", "did_mean_pc_popctrl_significant.csv"))
+
+# -----------------------------------------------------------------------
+# 6.  Display significant subset (or a note if none)
+# -----------------------------------------------------------------------
+if (nrow(did_sig) > 0) {
+  did_sig %>%
+    arrange(Window, p_value) %>%
+    kable(format = "html",
+          caption = "Mean DiD with per-capita aggregates & population control (p < 0.05)",
+          col.names = c("Metric", "β̂", "SE", "p", "Window")) %>%
+    kable_styling(full_width = FALSE,
+                  bootstrap_options = c("condensed", "striped", "hover"))
+} else {
+  cat("**No metrics are significant at p < 0.05 after per-capita conversion and population control.**")
+}
+```
+
+
+# Robustness & Parallel-Trends Checks (DiD)
+To probe whether our DiD estimates might simply be picking up spurious shifts rather than true policy effects, we construct a “placebo” test by pretending the law went into effect in 2018—before either the 10 k or 25 k mandates actually rolled out. Specifically, we add a `post_placebo` flag that equals 1 for years ≥ 2018 and 0 otherwise, and then rerun the exact same fixed‐effects regressions (with `log(Population_2019)` and city and year fixed effects, clustering by city) using `treat_10k` and `treat_25k` interacted with this fake post indicator. We bind together all of these placebo estimates, save them to CSV, and then filter for any “false positives” (coefficients on the placebo interaction with p < 0.05). If the parallel-trends assumption holds, we should see no significant treatment “effects” in this earlier period; finding none lends credibility to our main DiD results, whereas any significant placebo hits would warn us that underlying trends or noise might be driving our estimates.
+```{r robustness, echo=FALSE, message=FALSE, warning=FALSE}
+# 1. Create the placebo post indicator at 2018
+panel_placebo <- panel %>%
+  mutate(post_placebo = if_else(YEAR >= 2018, 1, 0))
+
+# 2. Helper to run a placebo DiD for any treat var
+placebo_run_did <- function(treat_var, label) {
+  map_dfr(did_vars, function(v) {
+    mod <- feols(
+      as.formula(glue("{v} ~ {treat_var} * post_placebo + log(Population_2019) | city + YEAR")),
+      data    = panel_placebo,
+      cluster = ~city
+    )
+    broom::tidy(mod) %>%
+      # pick off the placebo interaction
+      filter(term == glue("{treat_var}:post_placebo")) %>%
+      transmute(
+        Metric   = v,
+        Estimate = round(estimate, 3),
+        SE       = round(std.error, 3),
+        p_value  = round(p.value, 3),
+        Window   = label
+      )
+  })
+}
+
+# 3. Run it for both the 10k and 25k thresholds
+placebo_10k <- placebo_run_did("treat_10k", "10 k (Placebo 2018)")
+placebo_25k <- placebo_run_did("treat_25k", "25 k (Placebo 2018)")
+placebo_results <- bind_rows(placebo_10k, placebo_25k)
+
+# 4. Save all placebo estimates
+dir.create(here("outputs"), showWarnings = FALSE)
+write_csv(placebo_results, here("outputs", "did_placebo_2018.csv"))
+
+# 5. Report only “false positives” (p < 0.05)
+placebo_sig <- placebo_results %>% filter(p_value < 0.05)
+
+if (nrow(placebo_sig) > 0) {
+  placebo_sig %>%
+    arrange(Window, p_value) %>%
+    kable(
+      format    = "html",
+      caption   = "Placebo DiD (fake policy year = 2018) — metrics with p < 0.05",
+      col.names = c("Metric", "β̂", "SE", "p", "Window")
+    ) %>%
+    kable_styling(
+      full_width        = FALSE,
+      bootstrap_options = c("condensed", "striped", "hover")
+    )
+} else {
+  cat("**No metrics are significant at p < 0.05 in the placebo DiD.**")
+}
 ```
